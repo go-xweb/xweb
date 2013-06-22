@@ -1,0 +1,7 @@
+<table><tr><td colspan=2><a href="/add">添加</a>&nbsp; <a href="/logout">退出</a></td>
+			</tr>{{range .T.Users}}
+			<tr><td>{{.Name}}</td><td>
+			<a href="/delete?id={{.Id}}">删除</a>
+			<a href="/edit?id={{.Id}}">修改</a>
+			</td></tr>
+			{{end}}</table>
