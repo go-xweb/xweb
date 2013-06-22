@@ -1,6 +1,6 @@
 # xweb
 
-xweb is a web framework for Go which is based web.go. It just like Struts for Java. 
+xweb is a web framework for Go which is based on web.go. It just like Struts for Java. 
 
 ## Changelog
 
