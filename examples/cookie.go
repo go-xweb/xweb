@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
+	. "github.com/lunny/xweb"
 	"html"
-	. "xweb"
+	//. "xweb"
 )
 
 var cookieName = "cookie"

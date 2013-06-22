@@ -1,10 +1,10 @@
 package main
 
 import (
-	//. "github.com/lunny/xweb"
+	. "github.com/lunny/xweb"
 	"log"
 	"os"
-	. "xweb"
+	//. "xweb"
 )
 
 type MainAction struct {
