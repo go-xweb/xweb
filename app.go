@@ -266,10 +266,22 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		vc := reflect.New(route.ctype)
 		c := Action{Request: req, App: a,
 			ResponseWriter: w, BasePath: strings.TrimRight(a.BasePath, "/") + a.Actions[route.ctype]}
-		vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
+		fieldA := vc.Elem().FieldByName("Action")
+		if fieldA.IsValid() {
+			fieldA.Set(reflect.ValueOf(c))
+		}
 
 		a.StructMap(vc.Elem(), req)
-		vc.Elem().FieldByName("C").Set(reflect.ValueOf(vc))
+		fieldC := vc.Elem().FieldByName("C")
+		if fieldC.IsValid() {
+			fieldC.Set(reflect.ValueOf(vc))
+		}
+
+		initM := vc.MethodByName("Init")
+		if initM.IsValid() {
+			params := []reflect.Value{}
+			initM.Call(params)
+		}
 
 		ret, err := a.safelyCall(vc, route.handler, args)
 		if err != nil {

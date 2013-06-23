@@ -369,18 +369,11 @@ func (c *Action) AddHeader(key string, value string) {
 }
 
 func (c *Action) AddFunc(name string, tfunc interface{}) {
+	if c.f == nil {
+		c.f = make(map[string]interface{})
+	}
 	c.f[name] = tfunc
 }
-
-/*func (c *Action) addMethods() {
-	t := c.C.Type().Elem()
-	vc := c.C
-	for i := 0; i < t.NumMethod(); i++ {
-		m := c.C.Method(i).
-
-		t.Field(i).Type == reflect.TypeOf(Mapper{})
-	}
-}*/
 
 func (c *Action) ServeJson(obj interface{}) {
 	content, err := json.MarshalIndent(obj, "", "  ")
