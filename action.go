@@ -266,7 +266,9 @@ func (c *Action) Render(tmpl string, params ...*T) error {
 			c.T = params[0]
 		}
 
-		c.f = T{}
+		if c.f == nil {
+			c.f = T{}
+		}
 		c.f["include"] = c.Include
 
 		c.RootTemplate = template.New(tmpl)
