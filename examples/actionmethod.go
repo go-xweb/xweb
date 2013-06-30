@@ -1,8 +1,9 @@
 package main
 
 import (
-	. "github.com/lunny/xweb"
-	//. "xweb"
+	//. "github.com/lunny/xweb"
+	"fmt"
+	. "xweb"
 )
 
 type MainAction struct {
@@ -12,15 +13,18 @@ type MainAction struct {
 }
 
 var content string = `
-	base path is {{.BasePath}}
+	base path is {{.Basepath}}
 `
 
-func (c *MainAction) BasePath() string {
+func (c *MainAction) Basepath() string {
 	return c.App.BasePath
 }
 
 func (c *MainAction) Hello(world string) {
-	c.RenderString(content)
+	err := c.RenderString(content)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func main() {

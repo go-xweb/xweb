@@ -3,7 +3,7 @@ package xweb
 import (
 	"bytes"
 	"crypto/hmac"
-	//"crypto/md5"
+	"crypto/md5"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
@@ -38,7 +38,6 @@ type Action struct {
 	Session      session.SessionStore
 	T            *T
 	f            T
-	BasePath     string
 	RootTemplate *template.Template
 }
 
@@ -72,9 +71,10 @@ func (c *Action) Write(content string, values ...interface{}) error {
 // body. It is useful for returning 4xx or 5xx errors.
 // Once it has been called, any return value from the handler will
 // not be written to the response.
-func (c *Action) Abort(status int, body string) {
+func (c *Action) Abort(status int, body string) error {
 	c.ResponseWriter.WriteHeader(status)
-	c.ResponseWriter.Write([]byte(body))
+	_, err := c.ResponseWriter.Write([]byte(body))
+	return err
 }
 
 // Redirect is a helper method for 3xx redirects.
@@ -94,9 +94,8 @@ func (c *Action) NotModified() {
 }
 
 // NotFound writes a 404 HTTP response
-func (c *Action) NotFound(message string) {
-	c.ResponseWriter.WriteHeader(404)
-	c.ResponseWriter.Write([]byte(message))
+func (c *Action) NotFound(message string) error {
+	return c.Abort(404, message)
 }
 
 // ContentType sets the Content-Type header for an HTTP response.
@@ -141,7 +140,7 @@ func getCookieSig(key string, val []byte, timestamp string) string {
 
 func (c *Action) SetSecureCookie(name string, val string, age int64) {
 	//base64 encode the val
-	if len(c.App.Config.CookieSecret) == 0 {
+	if len(c.App.AppConfig.CookieSecret) == 0 {
 		c.App.Server.Logger.Println("Secret Key for secure cookies has not been set. Please assign a cookie secret to web.Config.CookieSecret.")
 		return
 	}
@@ -152,7 +151,7 @@ func (c *Action) SetSecureCookie(name string, val string, age int64) {
 	vs := buf.String()
 	vb := buf.Bytes()
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	sig := getCookieSig(c.App.Config.CookieSecret, vb, timestamp)
+	sig := getCookieSig(c.App.AppConfig.CookieSecret, vb, timestamp)
 	cookie := strings.Join([]string{vs, timestamp, sig}, "|")
 	c.SetCookie(NewCookie(name, cookie, age))
 }
@@ -169,7 +168,7 @@ func (c *Action) GetSecureCookie(name string) (string, bool) {
 		timestamp := parts[1]
 		sig := parts[2]
 
-		if getCookieSig(c.App.Config.CookieSecret, []byte(val), timestamp) != sig {
+		if getCookieSig(c.App.AppConfig.CookieSecret, []byte(val), timestamp) != sig {
 			return "", false
 		}
 
@@ -230,10 +229,18 @@ func (c *Action) Flush() {
 	flusher.Flush()
 }
 
+func (c *Action) BasePath() string {
+	return c.App.BasePath
+}
+
+func (c *Action) Namespace() string {
+	return c.App.Actions[c.C.Type()]
+}
+
 func (c *Action) Include(tmplName string) interface{} {
 	t := c.RootTemplate.New(tmplName)
 	t.Funcs(c.getFuncs())
-	content, err := ioutil.ReadFile(path.Join(c.App.Config.TemplateDir, tmplName))
+	content, err := ioutil.ReadFile(path.Join(c.App.AppConfig.TemplateDir, tmplName))
 	if err != nil {
 		fmt.Printf("RenderTemplate %v read err\n", tmplName)
 		return ""
@@ -259,52 +266,53 @@ func (c *Action) Include(tmplName string) interface{} {
 	}
 }
 
+func (c *Action) NamedRender(name, content string, params ...*T) error {
+	if len(params) > 0 {
+		c.T = params[0]
+	}
+
+	if c.f == nil {
+		c.f = T{}
+	}
+	c.f["include"] = c.Include
+
+	c.RootTemplate = template.New(name)
+	if len(params) >= 2 {
+		for k, v := range *params[1] {
+			c.f[k] = v
+		}
+	}
+	c.RootTemplate.Funcs(c.getFuncs())
+
+	tmpl, err := c.RootTemplate.Parse(string(content))
+	if err == nil {
+		newbytes := bytes.NewBufferString("")
+		err = tmpl.Execute(newbytes, c.C.Elem().Interface())
+		if err == nil {
+			tplcontent, err := ioutil.ReadAll(newbytes)
+			if err == nil {
+				_, err = c.ResponseWriter.Write(tplcontent)
+			}
+		}
+	}
+	return err
+}
+
 func (c *Action) Render(tmpl string, params ...*T) error {
 	path := c.App.getTemplatePath(tmpl)
-	if path != "" {
-		if len(params) > 0 {
-			c.T = params[0]
-		}
-
-		if c.f == nil {
-			c.f = T{}
-		}
-		c.f["include"] = c.Include
-
-		c.RootTemplate = template.New(tmpl)
-		if len(params) >= 2 {
-			for k, v := range *params[1] {
-				c.f[k] = v
-			}
-		}
-		c.RootTemplate.Funcs(c.getFuncs())
-
-		content, err := ioutil.ReadFile(path)
-		if err != nil {
-			fmt.Println("RenderTemplate Parse err")
-			return err
-		}
-		tmpl, err := c.RootTemplate.Parse(string(content))
-		if err == nil {
-			newbytes := bytes.NewBufferString("")
-			err = tmpl.Execute(newbytes, c.C.Elem().Interface())
-			if err == nil {
-				tplcontent, err := ioutil.ReadAll(newbytes)
-				if err == nil {
-					_, err = c.ResponseWriter.Write(tplcontent)
-				}
-			}
-		}
-		return err
-		//}
-	} else {
+	if path == "" {
 		return errors.New(fmt.Sprintf("No template file %v found", path))
 	}
+
+	content, err := ioutil.ReadFile(path)
+	if err == nil {
+		err = c.NamedRender(tmpl, string(content), params...)
+	}
+	return err
 }
 
 func (c *Action) getFuncs() template.FuncMap {
-	tp := c.C.Type().Elem()
-	funcs := c.App.FuncMaps[tp]
+	funcs := c.App.FuncMaps
 	if c.f != nil {
 		for k, v := range c.f {
 			funcs[k] = v
@@ -314,18 +322,20 @@ func (c *Action) getFuncs() template.FuncMap {
 	return funcs
 }
 
-/*func (c *Action) RenderString(content string, params ...*T) error {
+func (c *Action) GetConfig(name string) interface{} {
+	return c.App.Config[name]
+}
+
+func (c *Action) RenderString(content string, params ...*T) error {
 	h := md5.New()
 	h.Write([]byte(content))
 	name := h.Sum(nil)
 	return c.NamedRender(string(name), content, params...)
-}*/
+}
 
-func (c *Action) RenderString(content string, params ...*T) error {
-	//t := c.App.RootTemplate.New("test")
+/*func (c *Action) RenderString(content string, params ...*T) error {
 	t := template.New("test")
-	tp := c.C.Type().Elem()
-	funcs := c.App.FuncMaps[tp]
+	funcs := c.App.FuncMaps
 	for k, v := range c.f {
 		funcs[k] = v
 	}
@@ -357,7 +367,7 @@ func (c *Action) RenderString(content string, params ...*T) error {
 	}
 
 	return err
-}
+}*/
 
 // SetHeader sets a response header. the current value
 // of that header will be overwritten .
@@ -442,8 +452,8 @@ func (c *Action) SaveToFile(fromfile, tofile string) error {
 		return err
 	}
 	defer f.Close()
-	io.Copy(f, file)
-	return nil
+	_, err = io.Copy(f, file)
+	return err
 }
 
 func (c *Action) StartSession() session.SessionStore {

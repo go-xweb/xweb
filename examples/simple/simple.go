@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	//"github.com/lunny/xorm"
+	"github.com/lunny/xorm"
 	_ "github.com/mattn/go-sqlite3"
-	"xorm"
+	//"xorm"
 	. "xweb"
 )
 
@@ -76,29 +76,27 @@ func (c *MainAction) Logout() {
 	c.Go("root")
 }
 
-func (c *MainAction) List() {
-	if c.IsLogin() {
-		users := make([]User, 0)
-		err := engine.Find(&users)
-		if err == nil {
-			err = c.Render("list.html", &T{
-				"Users": &users,
-			})
-		}
-		if err != nil {
-			c.Write(err.Error())
-		}
-	} else {
-		c.Go("login")
+func (c *MainAction) List() error {
+	users := make([]User, 0)
+	err := engine.Find(&users)
+	if err == nil {
+		err = c.Render("list.html", &T{
+			"Users": &users,
+		})
 	}
+	return err
 }
 
 func (c *MainAction) Login() {
 	if c.Method() == "GET" {
 		c.Render("login.html")
 	} else if c.Method() == "POST" {
+		if c.User.Name == "" || c.User.Passwd == "" {
+			c.Go("login")
+			return
+		}
 		has, err := engine.Get(&c.User)
-		if err == nil {
+		if err == nil && has {
 			if has {
 				c.SetSession("userId", c.User.Id)
 				c.Go("list")
@@ -164,7 +162,6 @@ func (c *MainAction) Edit() {
 }
 
 func main() {
-	AddStaticDir("bootstrap", "js")
 	AddAction(&MainAction{})
 
 	app := MainServer().RootApp

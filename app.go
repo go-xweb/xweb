@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"github.com/astaxie/beego/session"
 	"html/template"
-	//"io/ioutil"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
 	//"path/filepath"
+	"crypto/md5"
+	"io"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -24,15 +26,17 @@ type App struct {
 	routes         []route
 	filters        []Filter
 	Server         *Server
-	Config         *AppConfig
+	AppConfig      *AppConfig
+	Config         map[string]interface{}
 	Actions        map[reflect.Type]string
-	FuncMaps       map[reflect.Type]template.FuncMap
+	FuncMaps       template.FuncMap
 	SessionManager *session.Manager //Session manager
 	RootTemplate   *template.Template
+	ErrorTemplate  *template.Template
 }
 
 type AppConfig struct {
-	StaticDirs    map[string]string
+	StaticDir     string
 	TemplateDir   string
 	SessionOn     bool
 	MaxUploadSize int64
@@ -49,71 +53,30 @@ type route struct {
 
 func NewApp(path string) *App {
 	return &App{BasePath: path,
-		Config: &AppConfig{
-			StaticDirs:    map[string]string{"static": "static"},
+		AppConfig: &AppConfig{
+			StaticDir:     "static",
 			TemplateDir:   "templates",
 			SessionOn:     true,
 			MaxUploadSize: 10 * 1024 * 1024,
 		},
+		Config:   map[string]interface{}{},
 		Actions:  map[reflect.Type]string{},
-		FuncMaps: map[reflect.Type]template.FuncMap{},
+		FuncMaps: defaultFuncs,
+		filters:  make([]Filter, 0),
 	}
 }
 
 func (a *App) initApp() {
-	if a.Config.SessionOn {
-		a.SessionManager, _ = session.NewManager("memory", "beegosessionID", 3600, "")
+	a.FuncMaps["StaticUrl"] = a.StaticUrl
+
+	if a.AppConfig.SessionOn {
+		identify := fmt.Sprintf("xweb_%v_%v_%v", a.Server.Config.Addr,
+			a.Server.Config.Port, strings.Replace(a.BasePath, "/", "_", -1))
+		fmt.Println(identify)
+		a.SessionManager, _ = session.NewManager("memory", identify, 3600, "")
 		go a.SessionManager.GC()
 	}
-	/*a.RootTemplate = template.New(a.BasePath)
-	err := a.initTemplates(a.Config.TemplateDir)
-	if err != nil {
-		fmt.Printf("initTemplates error: %v\n", err)
-		return
-	}*/
 }
-
-/*func (app *App) walkDir(dir string, f os.FileInfo, err error) error {
-	if f == nil {
-		return err
-	}
-	if f.IsDir() {
-		//childDir := path.Join(dir, f.Name())
-		//fmt.Println(f)
-		//if f.Name() != app.Config.TemplateDir {
-
-		//return filepath.Walk(childDir, app.walkDir)
-		return nil
-	} else if (f.Mode() & os.ModeSymlink) > 0 {
-		return nil
-	} else {
-		//fmt.Println(dir)
-		tpath := dir[len(app.Config.TemplateDir):]
-		tpath = strings.TrimLeft(tpath, "/")
-		//fmt.Println(tpath)
-		t := app.RootTemplate.New(tpath)
-
-		var err error
-		data, err := ioutil.ReadFile(dir)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-		content := string(data)
-		//fmt.Println(content)
-		//_, err = t.Funcs(defaultFuncs).Parse(content)
-		//fmt.Printf("%v=%v\n", t, err)
-		return err
-	}
-}
-
-func (a *App) initTemplates(dir string) error {
-	if _, err := os.Stat(dir); err != nil {
-		return errors.New("dir open err")
-	}
-
-	return filepath.Walk(dir, a.walkDir)
-}*/
 
 func PathDirName(path string) string {
 	d := strings.TrimRight(path, string(os.PathSeparator))
@@ -122,25 +85,27 @@ func PathDirName(path string) string {
 }
 
 func (a *App) SetStaticDir(dir string) {
-	a.Config.StaticDirs = map[string]string{PathDirName(dir): dir}
-}
-
-func (a *App) AddStaticDir(dirs ...string) {
-	for _, dir := range dirs {
-		a.Config.StaticDirs[PathDirName(dir)] = dir
-	}
+	a.AppConfig.StaticDir = dir
 }
 
 func (a *App) SetTemplateDir(path string) {
-	a.Config.TemplateDir = path
+	a.AppConfig.TemplateDir = path
 }
 
 func (a *App) getTemplatePath(name string) string {
-	templateFile := path.Join(a.Config.TemplateDir, name)
+	templateFile := path.Join(a.AppConfig.TemplateDir, name)
 	if fileExists(templateFile) {
 		return templateFile
 	}
 	return ""
+}
+
+func (app *App) SetConfig(name string, val interface{}) {
+	app.Config[name] = val
+}
+
+func (app *App) GetConfig(name string) interface{} {
+	return app.Config[name]
 }
 
 func (app *App) AddAction(cs ...interface{}) {
@@ -175,7 +140,6 @@ func (a *App) addRoute(r string, method string, t reflect.Type, handler string) 
 func (app *App) AddRouter(url string, c interface{}) {
 	t := reflect.TypeOf(c).Elem()
 	app.Actions[t] = url
-	app.FuncMaps[t] = defaultFuncs
 	for i := 0; i < t.NumField(); i++ {
 		tag := t.Field(i).Tag
 		tagStr := tag.Get("xweb")
@@ -219,7 +183,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	//ignore errors from ParseForm because it's usually harmless.
 	req.ParseForm()
-	req.ParseMultipartForm(a.Config.MaxUploadSize)
+	req.ParseMultipartForm(a.AppConfig.MaxUploadSize)
 
 	a.Server.Logger.Print(logEntry.String())
 
@@ -264,8 +228,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			args = append(args, reflect.ValueOf(arg))
 		}
 		vc := reflect.New(route.ctype)
-		c := Action{Request: req, App: a,
-			ResponseWriter: w, BasePath: strings.TrimRight(a.BasePath, "/") + a.Actions[route.ctype]}
+		c := Action{Request: req, App: a, ResponseWriter: w}
 		fieldA := vc.Elem().FieldByName("Action")
 		if fieldA.IsValid() {
 			fieldA.Set(reflect.ValueOf(c))
@@ -285,8 +248,10 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 		ret, err := a.safelyCall(vc, route.handler, args)
 		if err != nil {
+			c.GetLogger().Println(err)
 			//there was an error or panic while calling the handler
 			c.Abort(500, "Server Error")
+			return
 		}
 		if len(ret) == 0 {
 			return
@@ -299,6 +264,10 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			content = []byte(sval.String())
 		} else if sval.Kind() == reflect.Slice && sval.Type().Elem().Kind() == reflect.Uint8 {
 			content = sval.Interface().([]byte)
+		} else if e, ok := sval.Interface().(error); ok && e != nil {
+			c.GetLogger().Println(e)
+			c.Abort(500, "Server Error")
+			return
 		}
 		c.SetHeader("Content-Length", strconv.Itoa(len(content)))
 		_, err = c.ResponseWriter.Write(content)
@@ -320,11 +289,17 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	w.Write([]byte("Page not found"))
 }
 
-/*func (a *App) StaticUrl(url string) string {
-	us := strings.Split(url, "/")
-	path := a.Config.StaticDirs[us[0]] + strings.Join(us[1:], "/")
-	return a.BasePath + url + "?v="
-}*/
+func (a *App) StaticUrl(url string) string {
+	path := a.AppConfig.StaticDir + "/" + url
+	content, err := ioutil.ReadFile(path)
+	var sum string
+	if err == nil {
+		h := md5.New()
+		io.WriteString(h, string(content))
+		sum = fmt.Sprintf("%x", h.Sum(nil))[0:4]
+	}
+	return a.BasePath + url + "?v=" + sum
+}
 
 //func (a *App) xsrf_form_html() string {
 
@@ -359,16 +334,10 @@ func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) 
 // whether or not the operation is successful.
 func (a *App) tryServingFile(name string, req *http.Request, w http.ResponseWriter) bool {
 	newPath := name[len(a.BasePath):]
-	paths := strings.Split(newPath, "/")
-	for _, dir := range a.Config.StaticDirs {
-		dirs := strings.Split(dir, "/")
-		if dirs[len(dirs)-1] == paths[0] {
-			staticFile := path.Join(dir, strings.Join(paths[1:], "/"))
-			if fileExists(staticFile) {
-				http.ServeFile(w, req, staticFile)
-				return true
-			}
-		}
+	staticFile := path.Join(a.AppConfig.StaticDir, newPath)
+	if fileExists(staticFile) {
+		http.ServeFile(w, req, staticFile)
+		return true
 	}
 	//fmt.Println(name)
 	return false
@@ -406,11 +375,11 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 			} else {
 				tv := value.FieldByName(name)
 				if !tv.IsValid() {
-					a.Server.Logger.Printf("struct %v has no field named %v", value, name)
+					//a.Server.Logger.Printf("struct %v has no field named %v", value, name)
 					break
 				}
 				if !tv.CanSet() {
-					a.Server.Logger.Printf("can not set ", k)
+					a.Server.Logger.Printf("can not set %v", k)
 					break
 				}
 				var l interface{}
@@ -419,7 +388,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 					l = v
 					tv.Set(reflect.ValueOf(l))
 				case reflect.Bool:
-					l = (v == "true")
+					l = (v != "false" && v != "0")
 					tv.Set(reflect.ValueOf(l))
 				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 					x, err := strconv.Atoi(v)

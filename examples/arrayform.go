@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	. "github.com/lunny/xweb"
-	//. "xweb"
+	//. "github.com/lunny/xweb"
+	. "xweb"
 )
 
 var page = `

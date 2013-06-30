@@ -2,6 +2,8 @@
 
 xweb is a web framework for Go which is based on web.go. It just like Struts for Java. 
 
+[![Build Status](https://drone.io/github.com/lunny/xweb/status.png)](https://drone.io/github.com/lunny/xweb/latest)
+
 ## Changelog
 
 * **v0.1.0** : Inital release.
@@ -18,9 +20,9 @@ To install xweb, simply run:
 
     go get github.com/lunny/xweb
 
-## Example
+## Examples
 
-Please visit examples folder
+Please visit [examples](https://github.com/lunny/xweb/tree/master/examples) folder
 
 ## Documentation
 

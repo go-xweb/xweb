@@ -1,5 +1,23 @@
-<form method="post">
+{{include "header.html"}}
+
+<form method="post" class="form-horizontal">
+	 <div class="control-group">
+<label class="control-label" for="inputEmail">用户名</label>
+<div class="controls">
 			<input name="user.name" type="text"/>
+		</div>
+		 </div>
+<div class="control-group">
+<label class="control-label" for="inputPassword">密码</label>
+<div class="controls">
 			<input name="user.passwd" type="password"/>
-			<input type="submit" value="Add">
+			 </div>
+</div>
+ <div class="control-group">
+<div class="controls">
+			<input type="submit" class="btn btn-large btn-primary" value="添加">
+		</div>
+	</div>
 			</form>
+
+{{include "footer.html"}}

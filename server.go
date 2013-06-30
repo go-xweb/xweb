@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -43,9 +44,8 @@ func NewServer() *Server {
 }
 
 func (s *Server) AddApp(a *App) {
-	path := strings.TrimRight(a.BasePath, "/") + "/"
-	a.BasePath = path
-	s.Apps[path] = a
+	a.BasePath = strings.TrimRight(a.BasePath, "/") + "/"
+	s.Apps[a.BasePath] = a
 	a.Server = s
 	if a.BasePath == "/" {
 		s.RootApp = a
@@ -58,10 +58,6 @@ func (s *Server) AddAction(cs ...interface{}) {
 
 func (s *Server) AddRouter(url string, c interface{}) {
 	s.RootApp.AddRouter(url, c)
-}
-
-func (s *Server) AddStaticDir(dirs ...string) {
-	s.RootApp.AddStaticDir(dirs...)
 }
 
 func (s *Server) initServer() {
@@ -97,6 +93,10 @@ func (s *Server) Process(c http.ResponseWriter, req *http.Request) {
 // Run starts the web application and serves HTTP requests for s
 func (s *Server) Run(addr string) {
 	s.initServer()
+
+	addrs := strings.Split(addr, ":")
+	s.Config.Addr = addrs[0]
+	s.Config.Port, _ = strconv.Atoi(addrs[1])
 
 	mux := http.NewServeMux()
 	if s.Config.Profiler {

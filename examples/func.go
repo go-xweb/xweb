@@ -12,8 +12,8 @@ type MainAction struct {
 	hello Mapper `xweb:"/(.*)"`
 }
 
-func (c *MainAction) Hello(world string) {
-	c.RenderString(fmt.Sprintf("hello {{if isWorld}}%v{{else}}go{{end}}", world))
+func (c *MainAction) Hello(world string) error {
+	return c.RenderString(fmt.Sprintf("hello {{if isWorld}}%v{{else}}go{{end}}", world))
 }
 
 func (c *MainAction) IsWorld() bool {

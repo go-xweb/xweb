@@ -73,10 +73,6 @@ func AddApp(a *App) {
 	mainServer.AddApp(a)
 }
 
-func AddStaticDir(dirs ...string) {
-	mainServer.AddStaticDir(dirs...)
-}
-
 func SetTemplateDir(dir string) {
 	mainServer.SetTemplateDir(dir)
 }
