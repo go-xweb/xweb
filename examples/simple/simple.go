@@ -5,7 +5,7 @@ import (
 	"github.com/lunny/xorm"
 	_ "github.com/mattn/go-sqlite3"
 	//"xorm"
-	. "xweb"
+	. "github.com/lunny/xweb"
 )
 
 type MainAction struct {
