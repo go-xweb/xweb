@@ -78,14 +78,15 @@ func (c *Action) Abort(status int, body string) error {
 }
 
 // Redirect is a helper method for 3xx redirects.
-func (c *Action) Redirect(url string, status ...int) {
+func (c *Action) Redirect(url string, status ...int) error {
 	s := 302
 	if len(status) > 0 {
 		s = status[0]
 	}
 	c.ResponseWriter.Header().Set("Location", url)
 	c.ResponseWriter.WriteHeader(s)
-	c.ResponseWriter.Write([]byte("Redirecting to: " + url))
+	_, err := c.ResponseWriter.Write([]byte("Redirecting to: " + url))
+	return err
 }
 
 // Notmodified writes a 304 HTTP response
@@ -191,7 +192,7 @@ func (c *Action) Method() string {
 	return c.Request.Method
 }
 
-func (c *Action) Go(m string, anotherc ...interface{}) {
+func (c *Action) Go(m string, anotherc ...interface{}) error {
 	var t reflect.Type
 	if len(anotherc) > 0 {
 		t = reflect.TypeOf(anotherc[0]).Elem()
@@ -201,14 +202,12 @@ func (c *Action) Go(m string, anotherc ...interface{}) {
 
 	root, ok := c.App.Actions[t]
 	if !ok {
-		c.NotFound("Not Found")
-		return
+		return NotFound()
 	}
 
 	tag, ok := t.FieldByName(m)
 	if !ok {
-		c.NotFound("Not Found")
-		return
+		return NotFound()
 	}
 
 	tagStr := tag.Tag.Get("xweb")
@@ -218,9 +217,9 @@ func (c *Action) Go(m string, anotherc ...interface{}) {
 		if len(ts) >= 2 {
 			p = ts[1]
 		}
-		c.Redirect(path.Join(root, p))
+		return c.Redirect(root + p)
 	} else {
-		c.Redirect(path.Join(root, m))
+		return c.Redirect(root + m)
 	}
 }
 

@@ -4,12 +4,14 @@ package xweb
 
 import (
 	"crypto/tls"
+	"io/ioutil"
 	"log"
 	"net/http"
 	//"os"
-	//"path"
+	"path"
 	//"reflect"
 	//"strings"
+	"fmt"
 )
 
 // small optimization: cache the context type instead of repeteadly calling reflect.Typeof
@@ -29,6 +31,24 @@ func init() {
 	}
 	_, _ := path.Split(exeFile)*/
 	return
+}
+
+func Redirect(w http.ResponseWriter, url string) error {
+	w.Header().Set("Location", url)
+	w.WriteHeader(302)
+	_, err := w.Write([]byte("Redirecting to: " + url))
+	return err
+}
+
+func Download(w http.ResponseWriter, fpath string) error {
+	data, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return err
+	}
+	fName := fpath[len(path.Dir(fpath))+1:]
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fName))
+	_, err = w.Write(data)
+	return err
 }
 
 // Process invokes the main server's routing system.

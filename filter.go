@@ -44,12 +44,6 @@ func (s *LoginFilter) AddAskLoginUrls(urls ...string) {
 	}
 }
 
-func redirect(w http.ResponseWriter, url string) {
-	w.Header().Set("Location", url)
-	w.WriteHeader(302)
-	w.Write([]byte("Redirecting to: " + url))
-}
-
 func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	requestPath := req.URL.Path
 	fmt.Printf("LoginFilter: %v\n", requestPath)
@@ -68,7 +62,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 			continue
 		}
 		if !has {
-			redirect(w, s.Redirect)
+			Redirect(w, s.Redirect)
 		}
 		return has
 	}
@@ -89,7 +83,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	}
 
 	if !has {
-		redirect(w, s.Redirect)
+		Redirect(w, s.Redirect)
 	}
 	return has
 }
