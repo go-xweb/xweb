@@ -205,7 +205,9 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 		return NotFound()
 	}
 
-	tag, ok := t.FieldByName(m)
+	uris := strings.Split(m, "?")
+
+	tag, ok := t.FieldByName(uris[0])
 	if !ok {
 		return NotFound()
 	}
@@ -217,7 +219,7 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 		if len(ts) >= 2 {
 			p = ts[1]
 		}
-		return c.Redirect(root + p)
+		return c.Redirect(root + p + m[len(uris[0]):])
 	} else {
 		return c.Redirect(root + m)
 	}
