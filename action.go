@@ -26,7 +26,7 @@ import (
 	"time"
 )
 
-// A Action object or it's substruct is created for every incoming HTTP request.
+// An Action object or it's substruct is created for every incoming HTTP request.
 // It provides information
 // about the request, including the http.Request object, the GET and POST params,
 // and acts as a Writer for the response.
@@ -219,7 +219,9 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 		if len(ts) >= 2 {
 			p = ts[1]
 		}
-		return c.Redirect(root + p + m[len(uris[0]):])
+		rPath := root + p + m[len(uris[0]):]
+		rPath = strings.Replace(rPath, "//", "/", -1)
+		return c.Redirect(rPath)
 	} else {
 		return c.Redirect(root + m)
 	}
@@ -333,42 +335,6 @@ func (c *Action) RenderString(content string, params ...*T) error {
 	name := h.Sum(nil)
 	return c.NamedRender(string(name), content, params...)
 }
-
-/*func (c *Action) RenderString(content string, params ...*T) error {
-	t := template.New("test")
-	funcs := c.App.FuncMaps
-	for k, v := range c.f {
-		funcs[k] = v
-	}
-	if len(params) >= 2 {
-		for k, v := range *params[1] {
-			funcs[k] = v
-		}
-	}
-	t.Funcs(funcs)
-
-	tmpl, err := t.Parse(content)
-	if err != nil {
-		return err
-	}
-
-	if len(params) > 0 {
-		c.T = params[0]
-	}
-
-	//return tmpl.Execute(c.ResponseWriter, c.C.Elem().Interface())
-
-	newbytes := bytes.NewBufferString("")
-	err = tmpl.Execute(newbytes, c.C.Elem().Interface())
-	if err == nil {
-		tplcontent, err := ioutil.ReadAll(newbytes)
-		if err == nil {
-			_, err = c.ResponseWriter.Write(tplcontent)
-		}
-	}
-
-	return err
-}*/
 
 // SetHeader sets a response header. the current value
 // of that header will be overwritten .

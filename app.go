@@ -229,16 +229,18 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		}
 		vc := reflect.New(route.ctype)
 		c := Action{Request: req, App: a, ResponseWriter: w}
+
 		fieldA := vc.Elem().FieldByName("Action")
 		if fieldA.IsValid() {
 			fieldA.Set(reflect.ValueOf(c))
 		}
 
-		a.StructMap(vc.Elem(), req)
 		fieldC := vc.Elem().FieldByName("C")
 		if fieldC.IsValid() {
 			fieldC.Set(reflect.ValueOf(vc))
 		}
+
+		a.StructMap(vc.Elem(), req)
 
 		initM := vc.MethodByName("Init")
 		if initM.IsValid() {
