@@ -114,6 +114,10 @@ func (app *App) AddAction(cs ...interface{}) {
 	}
 }
 
+func (a *App) AddFunc(name string, fun interface{}) {
+	a.FuncMaps[name] = fun
+}
+
 func (app *App) AddFilter(filter Filter) {
 	app.filters = append(app.filters, filter)
 }
