@@ -46,6 +46,21 @@ type Mapper struct {
 
 type T map[string]interface{}
 
+/*func (c *Action) XsrfFormHtml() string {
+	cookie, err := c.GetCookie("xrsf")
+	if err == nil {
+
+	}
+}
+
+token = self.get_cookie("_xsrf")
+    if not token:
+        token = binascii.b2a_hex(uuid.uuid4().bytes)
+        expires_days = 30 if self.current_user else None
+        self.set_cookie("_xsrf", token, expires_days=expires_days)
+    self._xsrf_token = token
+return self._xsrf_token*/
+
 // WriteString writes string data into the response object.
 func (c *Action) WriteBytes(bytes []byte) error {
 	_, err := c.ResponseWriter.Write(bytes)
