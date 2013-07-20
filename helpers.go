@@ -56,9 +56,10 @@ func SimpleParse(data string) map[string]string {
 	configs := make(map[string]string)
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
+		line = strings.TrimRight(line, "\r")
 		vs := strings.Split(line, "=")
 		if len(vs) == 2 {
-			configs[strings.Trim(vs[0], " ")] = strings.Trim(vs[1], " ")
+			configs[strings.TrimSpace(vs[0])] = strings.TrimSpace(vs[1])
 		}
 	}
 	return configs
