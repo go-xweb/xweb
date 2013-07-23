@@ -26,7 +26,11 @@ Please visit [examples](https://github.com/lunny/xweb/tree/master/examples) fold
 
 ## Documentation
 
-Please visit [GoWalker](http://gowalker.org/github.com/lunny/xweb)
+English
+
+API, Please visit [GoWalker](http://gowalker.org/github.com/lunny/xweb)
+
+中文文档
 
 ## About
 

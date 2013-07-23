@@ -5,7 +5,10 @@ import (
 	"github.com/lunny/xorm"
 	_ "github.com/mattn/go-sqlite3"
 	//"xorm"
-	. "github.com/lunny/xweb"
+	//. "github.com/lunny/xweb"
+	"log"
+	"os"
+	. "xweb"
 )
 
 type MainAction struct {
@@ -168,6 +171,14 @@ func main() {
 	filter := NewLoginFilter(app, "userId", "/login")
 	filter.AddAnonymousUrls("/", "/login", "/logout")
 	app.AddFilter(filter)
+	//app.AppConfig.StaticFileVersion = false
 
+	f, err := os.Create("simple.log")
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	logger := log.New(f, "", log.Ldate|log.Ltime)
+	SetLogger(logger)
 	Run("0.0.0.0:8080")
 }

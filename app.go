@@ -2,23 +2,21 @@ package xweb
 
 import (
 	"bytes"
-	//"errors"
 	"fmt"
 	"github.com/astaxie/beego/session"
 	"html/template"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"path"
-	//"path/filepath"
-	"crypto/md5"
-	"io"
 	"reflect"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	XSRF_TAG string = "_xsrf"
 )
 
 type App struct {
@@ -33,14 +31,20 @@ type App struct {
 	SessionManager *session.Manager //Session manager
 	RootTemplate   *template.Template
 	ErrorTemplate  *template.Template
+	StaticVerMgr   *StaticVerMgr
+	TemplateMgr    *TemplateMgr
 }
 
 type AppConfig struct {
-	StaticDir     string
-	TemplateDir   string
-	SessionOn     bool
-	MaxUploadSize int64
-	CookieSecret  string
+	StaticDir         string
+	TemplateDir       string
+	SessionOn         bool
+	MaxUploadSize     int64
+	CookieSecret      string
+	StaticFileVersion bool
+	CacheTemplates    bool
+	ReloadTemplates   bool
+	CheckXrsf         bool
 }
 
 type route struct {
@@ -54,19 +58,31 @@ type route struct {
 func NewApp(path string) *App {
 	return &App{BasePath: path,
 		AppConfig: &AppConfig{
-			StaticDir:     "static",
-			TemplateDir:   "templates",
-			SessionOn:     true,
-			MaxUploadSize: 10 * 1024 * 1024,
+			StaticDir:         "static",
+			TemplateDir:       "templates",
+			SessionOn:         true,
+			MaxUploadSize:     10 * 1024 * 1024,
+			StaticFileVersion: true,
+			CacheTemplates:    true,
+			ReloadTemplates:   true,
+			CheckXrsf:         true,
 		},
-		Config:   map[string]interface{}{},
-		Actions:  map[reflect.Type]string{},
-		FuncMaps: defaultFuncs,
-		filters:  make([]Filter, 0),
+		Config:       map[string]interface{}{},
+		Actions:      map[reflect.Type]string{},
+		FuncMaps:     defaultFuncs,
+		filters:      make([]Filter, 0),
+		StaticVerMgr: new(StaticVerMgr),
+		TemplateMgr:  new(TemplateMgr),
 	}
 }
 
 func (a *App) initApp() {
+	if a.AppConfig.StaticFileVersion {
+		a.StaticVerMgr.Init(a.AppConfig.StaticDir)
+	}
+	if a.AppConfig.CacheTemplates {
+		a.TemplateMgr.Init(a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
+	}
 	a.FuncMaps["StaticUrl"] = a.StaticUrl
 
 	if a.AppConfig.SessionOn {
@@ -76,12 +92,6 @@ func (a *App) initApp() {
 		a.SessionManager, _ = session.NewManager("memory", identify, 3600, "")
 		go a.SessionManager.GC()
 	}
-}
-
-func PathDirName(path string) string {
-	d := strings.TrimRight(path, string(os.PathSeparator))
-	ps := strings.Split(d, string(os.PathSeparator))
-	return ps[len(ps)-1]
 }
 
 func (a *App) SetStaticDir(dir string) {
@@ -227,6 +237,20 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			continue
 		}
 
+		if a.AppConfig.CheckXrsf && req.Method == "POST" {
+			res, err := req.Cookie(XSRF_TAG)
+			formVals := req.Form[XSRF_TAG]
+			var formVal string
+			if len(formVals) > 0 {
+				formVal = formVals[0]
+			}
+			if err != nil || res.Value == "" || res.Value != formVal {
+				w.WriteHeader(500)
+				w.Write([]byte("xrsf error."))
+				return
+			}
+		}
+
 		var args []reflect.Value
 		for _, arg := range match[1:] {
 			args = append(args, reflect.ValueOf(arg))
@@ -296,20 +320,15 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 }
 
 func (a *App) StaticUrl(url string) string {
-	path := a.AppConfig.StaticDir + "/" + url
-	content, err := ioutil.ReadFile(path)
-	var sum string
-	if err == nil {
-		h := md5.New()
-		io.WriteString(h, string(content))
-		sum = fmt.Sprintf("%x", h.Sum(nil))[0:4]
+	if !a.AppConfig.StaticFileVersion {
+		return a.BasePath + url
 	}
-	return a.BasePath + url + "?v=" + sum
+	ver := a.StaticVerMgr.GetVersion(url)
+	if ver == "" {
+		return a.BasePath + url
+	}
+	return a.BasePath + url + "?v=" + ver
 }
-
-//func (a *App) xsrf_form_html() string {
-
-//}
 
 // safelyCall invokes `function` in recover block
 func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) (resp []reflect.Value, e interface{}) {

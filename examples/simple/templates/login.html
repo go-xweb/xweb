@@ -40,6 +40,7 @@
 <body>
 	<div class="container">
 		<form class="form-signin" method="post">
+      {{XsrfFormHtml}}
         <h2 class="form-signin-heading">登录</h2>
         <input name="user.name" type="text" class="input-block-level" placeholder="默认账号为admin">
         <input name="user.passwd" type="password" class="input-block-level" placeholder="默认密码为123">

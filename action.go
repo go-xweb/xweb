@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"bytes"
+	"code.google.com/p/go-uuid/uuid"
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
@@ -19,7 +20,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -46,20 +46,18 @@ type Mapper struct {
 
 type T map[string]interface{}
 
-/*func (c *Action) XsrfFormHtml() string {
-	cookie, err := c.GetCookie("xrsf")
-	if err == nil {
-
+func (c *Action) XsrfFormHtml() template.HTML {
+	var val string = ""
+	cookie, err := c.GetCookie(XSRF_TAG)
+	if err != nil {
+		val = uuid.NewRandom().String()
+		c.SetCookie(NewCookie(XSRF_TAG, val, 1800))
+	} else {
+		val = cookie.Value
 	}
+	return template.HTML(fmt.Sprintf(`<input type="hidden" name="_xsrf" value="%v"/>`,
+		val))
 }
-
-token = self.get_cookie("_xsrf")
-    if not token:
-        token = binascii.b2a_hex(uuid.uuid4().bytes)
-        expires_days = 30 if self.current_user else None
-        self.set_cookie("_xsrf", token, expires_days=expires_days)
-    self._xsrf_token = token
-return self._xsrf_token*/
 
 // WriteString writes string data into the response object.
 func (c *Action) WriteBytes(bytes []byte) error {
@@ -258,7 +256,8 @@ func (c *Action) Namespace() string {
 func (c *Action) Include(tmplName string) interface{} {
 	t := c.RootTemplate.New(tmplName)
 	t.Funcs(c.getFuncs())
-	content, err := ioutil.ReadFile(path.Join(c.App.AppConfig.TemplateDir, tmplName))
+
+	content, err := c.getTemplate(tmplName)
 	if err != nil {
 		fmt.Printf("RenderTemplate %v read err\n", tmplName)
 		return ""
@@ -293,6 +292,7 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 		c.f = T{}
 	}
 	c.f["include"] = c.Include
+	c.f["XsrfFormHtml"] = c.XsrfFormHtml
 
 	c.RootTemplate = template.New(name)
 	if len(params) >= 2 {
@@ -316,13 +316,20 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 	return err
 }
 
-func (c *Action) Render(tmpl string, params ...*T) error {
+func (c *Action) getTemplate(tmpl string) ([]byte, error) {
+	if c.App.AppConfig.CacheTemplates {
+		return c.App.TemplateMgr.GetTemplate(tmpl)
+	}
 	path := c.App.getTemplatePath(tmpl)
 	if path == "" {
-		return errors.New(fmt.Sprintf("No template file %v found", path))
+		return nil, errors.New(fmt.Sprintf("No template file %v found", path))
 	}
 
-	content, err := ioutil.ReadFile(path)
+	return ioutil.ReadFile(path)
+}
+
+func (c *Action) Render(tmpl string, params ...*T) error {
+	content, err := c.getTemplate(tmpl)
 	if err == nil {
 		err = c.NamedRender(tmpl, string(content), params...)
 	}
