@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/howeyc/fsnotify"
 	"io"
-	"io/ioutil"
+	//"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -119,7 +119,19 @@ func (self *StaticVerMgr) Init(staticPath string) error {
 }
 
 func (self *StaticVerMgr) getFileVer(url string) string {
-	content, err := ioutil.ReadFile(path.Join(self.Path, url))
+	//content, err := ioutil.ReadFile(path.Join(self.Path, url))
+	f, err := os.Open(path.Join(self.Path, url))
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	fInfo, err := f.Stat()
+	if err != nil {
+		return ""
+	}
+	content := make([]byte, int(fInfo.Size()))
+	_, err = f.Read(content)
 	if err == nil {
 		h := md5.New()
 		io.WriteString(h, string(content))

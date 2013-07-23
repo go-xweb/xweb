@@ -14,6 +14,7 @@ var notice = `
 `
 var form = `
 <form method="POST" action="update">
+  {{XsrfFormHtml}}
   <div class="field">
     <label for="cookie"> Set a cookie: </label>
     <input id="cookie" name="cookie"> </input>
