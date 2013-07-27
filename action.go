@@ -286,11 +286,14 @@ func (c *Action) Include(tmplName string) interface{} {
 func (c *Action) NamedRender(name, content string, params ...*T) error {
 	if len(params) > 0 {
 		c.T = params[0]
+	} else {
+		c.T = &T{}
 	}
 
 	if c.f == nil {
 		c.f = T{}
 	}
+
 	c.f["include"] = c.Include
 	c.f["XsrfFormHtml"] = c.XsrfFormHtml
 

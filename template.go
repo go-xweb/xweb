@@ -159,11 +159,12 @@ func (self *TemplateMgr) Init(rootDir string, reload bool) error {
 	self.RootDir = rootDir
 	self.Caches = make(map[string][]byte)
 	self.mutex = &sync.Mutex{}
+	if dirExists(rootDir) {
+		self.CacheAll(rootDir)
 
-	self.CacheAll(rootDir)
-
-	if reload {
-		go self.Moniter(rootDir)
+		if reload {
+			go self.Moniter(rootDir)
+		}
 	}
 
 	return nil

@@ -87,9 +87,9 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 		}
 	}()
 
-	err = filepath.Walk(staticPath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(staticPath, func(f string, info os.FileInfo, err error) error {
 		if info.IsDir() {
-			return watcher.Watch(path)
+			return watcher.Watch(f)
 		}
 		return nil
 	})
@@ -111,9 +111,11 @@ func (self *StaticVerMgr) Init(staticPath string) error {
 	self.mutex = &sync.Mutex{}
 	self.Ignores = map[string]bool{".DS_Store": true}
 
-	self.CacheAll(staticPath)
+	if dirExists(staticPath) {
+		self.CacheAll(staticPath)
 
-	go self.Moniter(staticPath)
+		go self.Moniter(staticPath)
+	}
 
 	return nil
 }
@@ -130,6 +132,7 @@ func (self *StaticVerMgr) getFileVer(url string) string {
 	if err != nil {
 		return ""
 	}
+
 	content := make([]byte, int(fInfo.Size()))
 	_, err = f.Read(content)
 	if err == nil {
