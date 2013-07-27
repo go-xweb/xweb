@@ -88,7 +88,7 @@ func (a *App) initApp() {
 	if a.AppConfig.SessionOn {
 		identify := fmt.Sprintf("xweb_%v_%v_%v", a.Server.Config.Addr,
 			a.Server.Config.Port, strings.Replace(a.BasePath, "/", "_", -1))
-		fmt.Println(identify)
+		//fmt.Println(identify)
 		a.SessionManager, _ = session.NewManager("memory", identify, 3600, "")
 		go a.SessionManager.GC()
 	}
@@ -256,7 +256,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			args = append(args, reflect.ValueOf(arg))
 		}
 		vc := reflect.New(route.ctype)
-		c := Action{Request: req, App: a, ResponseWriter: w}
+		c := Action{Request: req, App: a, ResponseWriter: w, T: T{}, f: T{}}
 
 		fieldA := vc.Elem().FieldByName("Action")
 		if fieldA.IsValid() {

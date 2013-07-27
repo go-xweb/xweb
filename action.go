@@ -36,7 +36,7 @@ type Action struct {
 	http.ResponseWriter
 	C            reflect.Value
 	Session      session.SessionStore
-	T            *T
+	T            T
 	f            T
 	RootTemplate *template.Template
 }
@@ -284,23 +284,18 @@ func (c *Action) Include(tmplName string) interface{} {
 }
 
 func (c *Action) NamedRender(name, content string, params ...*T) error {
-	if len(params) > 0 {
-		c.T = params[0]
-	} else {
-		c.T = &T{}
-	}
-
-	if c.f == nil {
-		c.f = T{}
-	}
-
 	c.f["include"] = c.Include
 	c.f["XsrfFormHtml"] = c.XsrfFormHtml
 
 	c.RootTemplate = template.New(name)
-	if len(params) >= 2 {
-		for k, v := range *params[1] {
-			c.f[k] = v
+	if len(params) >= 1 {
+		for k, v := range *params[0] {
+			c.T[k] = v
+		}
+		if len(params) >= 2 {
+			for k, v := range *params[1] {
+				c.f[k] = v
+			}
 		}
 	}
 	c.RootTemplate.Funcs(c.getFuncs())
@@ -372,11 +367,12 @@ func (c *Action) AddHeader(key string, value string) {
 	c.Header().Add(key, value)
 }
 
-func (c *Action) AddFunc(name string, tfunc interface{}) {
-	if c.f == nil {
-		c.f = make(map[string]interface{})
-	}
-	c.f[name] = tfunc
+func (c *Action) AddVar(name string, tVar interface{}) {
+	c.T[name] = tVar
+}
+
+func (c *Action) AddFunc(name string, tFunc interface{}) {
+	c.f[name] = tFunc
 }
 
 func (c *Action) ServeJson(obj interface{}) {

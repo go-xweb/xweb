@@ -1,7 +1,7 @@
 package xweb
 
 import (
-	"fmt"
+	//"fmt"
 	"net/http"
 	"regexp"
 )
@@ -46,7 +46,7 @@ func (s *LoginFilter) AddAskLoginUrls(urls ...string) {
 
 func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	requestPath := req.URL.Path
-	fmt.Printf("LoginFilter: %v\n", requestPath)
+	//fmt.Printf("LoginFilter: %v\n", requestPath)
 	sess := s.App.SessionManager.SessionStart(w, req)
 	defer sess.SessionRelease()
 

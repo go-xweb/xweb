@@ -92,11 +92,11 @@ func (s *Server) Process(c http.ResponseWriter, req *http.Request) {
 
 // Run starts the web application and serves HTTP requests for s
 func (s *Server) Run(addr string) {
-	s.initServer()
-
 	addrs := strings.Split(addr, ":")
 	s.Config.Addr = addrs[0]
 	s.Config.Port, _ = strconv.Atoi(addrs[1])
+
+	s.initServer()
 
 	mux := http.NewServeMux()
 	if s.Config.Profiler {
