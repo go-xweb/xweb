@@ -196,8 +196,12 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	fmt.Fprintf(&logEntry, "\033[32;1m%s %s\033[0m", req.Method, requestPath)
 
 	//ignore errors from ParseForm because it's usually harmless.
-	req.ParseForm()
-	req.ParseMultipartForm(a.AppConfig.MaxUploadSize)
+	ct := req.Header.Get("Content-Type")
+	if strings.Contains(ct, "multipart/form-data") {
+		req.ParseMultipartForm(a.AppConfig.MaxUploadSize)
+	} else {
+		req.ParseForm()
+	}
 
 	a.Server.Logger.Print(logEntry.String())
 
