@@ -157,7 +157,7 @@ func (app *App) AddRouter(url string, c interface{}) {
 	t := reflect.TypeOf(c).Elem()
 	app.Actions[t] = url
 	for i := 0; i < t.NumField(); i++ {
-		if t.Field(i).Type == reflect.TypeOf(Mapper{}) {
+		if t.Field(i).Type != reflect.TypeOf(Mapper{}) {
 			continue
 		}
 		name := t.Field(i).Name
