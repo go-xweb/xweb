@@ -45,6 +45,7 @@ type AppConfig struct {
 	CacheTemplates    bool
 	ReloadTemplates   bool
 	CheckXrsf         bool
+	SessionTimeout    int64
 }
 
 type route struct {
@@ -61,6 +62,7 @@ func NewApp(path string) *App {
 			StaticDir:         "static",
 			TemplateDir:       "templates",
 			SessionOn:         true,
+			SessionTimeout:    3600,
 			MaxUploadSize:     10 * 1024 * 1024,
 			StaticFileVersion: true,
 			CacheTemplates:    true,
@@ -89,7 +91,7 @@ func (a *App) initApp() {
 		identify := fmt.Sprintf("xweb_%v_%v_%v", a.Server.Config.Addr,
 			a.Server.Config.Port, strings.Replace(a.BasePath, "/", "_", -1))
 		//fmt.Println(identify)
-		a.SessionManager, _ = session.NewManager("memory", identify, 3600, "")
+		a.SessionManager, _ = session.NewManager("memory", identify, a.AppConfig.SessionTimeout, "")
 		go a.SessionManager.GC()
 	}
 }
@@ -155,33 +157,41 @@ func (app *App) AddRouter(url string, c interface{}) {
 	t := reflect.TypeOf(c).Elem()
 	app.Actions[t] = url
 	for i := 0; i < t.NumField(); i++ {
+		if t.Field(i).Type == reflect.TypeOf(Mapper{}) {
+			continue
+		}
+		name := t.Field(i).Name
+		a := strings.Title(name)
+		v := reflect.ValueOf(c).MethodByName(a)
+		if !v.IsValid() {
+			continue
+		}
+
 		tag := t.Field(i).Tag
 		tagStr := tag.Get("xweb")
 		if tagStr != "" {
-			a := strings.Title(t.Field(i).Name)
-			v := reflect.ValueOf(c).MethodByName(a)
-			if v.IsValid() {
-				tags := strings.Split(tagStr, " ")
-				methods := []string{"GET", "POST"}
-				path := tagStr
-				if len(tags) >= 2 {
+			tags := strings.Split(tagStr, " ")
+			methods := []string{"GET", "POST"}
+			path := tagStr
+			if len(tags) >= 2 {
+				methods = strings.Split(tags[0], "|")
+				path = tags[1]
+			} else if len(tags) == 1 {
+				if strings.HasPrefix(tags[0], "/") {
+					path = tags[0]
+				} else {
 					methods = strings.Split(tags[0], "|")
-					path = tags[1]
+					path = "/" + name
 				}
-				for _, method := range methods {
-					app.addRoute(strings.TrimRight(url, "/")+path, strings.ToUpper(method), t, a)
-				}
+			} else {
+				path = "/" + name
+			}
+			for _, method := range methods {
+				app.addRoute(strings.TrimRight(url, "/")+path, strings.ToUpper(method), t, a)
 			}
 		} else {
-			if t.Field(i).Type == reflect.TypeOf(Mapper{}) {
-				name := t.Field(i).Name
-				a := strings.Title(name)
-				v := reflect.ValueOf(c).MethodByName(a)
-				if v.IsValid() {
-					app.addRoute(strings.TrimRight(url, "/")+"/"+name, "GET", t, a)
-					app.addRoute(strings.TrimRight(url, "/")+"/"+name, "POST", t, a)
-				}
-			}
+			app.addRoute(strings.TrimRight(url, "/")+"/"+name, "GET", t, a)
+			app.addRoute(strings.TrimRight(url, "/")+"/"+name, "POST", t, a)
 		}
 
 	}

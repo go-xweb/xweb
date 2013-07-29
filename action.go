@@ -51,7 +51,7 @@ func (c *Action) XsrfFormHtml() template.HTML {
 	cookie, err := c.GetCookie(XSRF_TAG)
 	if err != nil {
 		val = uuid.NewRandom().String()
-		c.SetCookie(NewCookie(XSRF_TAG, val, 1800))
+		c.SetCookie(NewCookie(XSRF_TAG, val, c.App.AppConfig.SessionTimeout))
 	} else {
 		val = cookie.Value
 	}
