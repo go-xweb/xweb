@@ -76,6 +76,14 @@ func FormatDate(t time.Time, format string) string {
 }
 
 func Eq(left interface{}, right interface{}) bool {
+	_, leftIsNil := left.(nil)
+	_, rightIsNil := right.(nil)
+	if leftIsNil || rightIsNil {
+		if leftIsNil && rightIsNil {
+			return true
+		}
+		return false
+	}
 	return left == right
 }
 
