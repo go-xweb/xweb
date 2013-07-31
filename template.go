@@ -12,6 +12,14 @@ import (
 	"time"
 )
 
+func IsNil(a interface{}) bool {
+	switch a.(type) {
+	case nil:
+		return true
+	}
+	return false
+}
+
 func Add(left interface{}, right interface{}) interface{} {
 	var rleft, rright int64
 	var fleft, fright float64
@@ -81,6 +89,7 @@ var (
 		"FormatDate": FormatDate,
 		"Html":       Html,
 		"Add":        Add,
+		"IsNil":      IsNil,
 	}
 )
 
