@@ -51,7 +51,7 @@ type AppConfig struct {
 type route struct {
 	r       string
 	cr      *regexp.Regexp
-	method  string
+	methods map[string]bool
 	handler string
 	ctype   reflect.Type
 }
@@ -143,14 +143,14 @@ func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 	return true
 }
 
-func (a *App) addRoute(r string, method string, t reflect.Type, handler string) {
+func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
 	cr, err := regexp.Compile(r)
 	if err != nil {
 		a.Server.Logger.Printf("Error in route regex %q\n", r)
 		return
 	}
 
-	a.routes = append(a.routes, route{r, cr, method, handler, t})
+	a.routes = append(a.routes, route{r, cr, methods, handler, t})
 }
 
 func (app *App) AddRouter(url string, c interface{}) {
@@ -169,31 +169,32 @@ func (app *App) AddRouter(url string, c interface{}) {
 
 		tag := t.Field(i).Tag
 		tagStr := tag.Get("xweb")
+		methods := map[string]bool{"GET": true, "POST": true}
 		if tagStr != "" {
 			tags := strings.Split(tagStr, " ")
-			methods := []string{"GET", "POST"}
 			path := tagStr
 			if len(tags) >= 2 {
-				methods = strings.Split(tags[0], "|")
+				for _, method := range strings.Split(tags[0], "|") {
+					methods[strings.ToUpper(method)] = true
+				}
 				path = tags[1]
 			} else if len(tags) == 1 {
 				if strings.HasPrefix(tags[0], "/") {
 					path = tags[0]
 				} else {
-					methods = strings.Split(tags[0], "|")
+					for _, method := range strings.Split(tags[0], "|") {
+						methods[strings.ToUpper(method)] = true
+					}
 					path = "/" + name
 				}
 			} else {
 				path = "/" + name
 			}
-			for _, method := range methods {
-				app.addRoute(strings.TrimRight(url, "/")+path, strings.ToUpper(method), t, a)
-			}
-		} else {
-			app.addRoute(strings.TrimRight(url, "/")+"/"+name, "GET", t, a)
-			app.addRoute(strings.TrimRight(url, "/")+"/"+name, "POST", t, a)
-		}
 
+			app.addRoute(strings.TrimRight(url, "/")+path, methods, t, a)
+		} else {
+			app.addRoute(strings.TrimRight(url, "/")+"/"+name, methods, t, a)
+		}
 	}
 }
 
@@ -238,7 +239,8 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		route := a.routes[i]
 		cr := route.cr
 		//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
-		if req.Method != route.method && !(req.Method == "HEAD" && route.method == "GET") {
+		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
+		if _, ok := route.methods[allowMethod]; !ok {
 			continue
 		}
 
@@ -385,6 +387,103 @@ func (a *App) tryServingFile(name string, req *http.Request, w http.ResponseWrit
 var (
 	sc *Action = &Action{}
 )
+
+/*func FormMap(prefix string, result interface{}, values *map[string][]string) error {
+	value := reflect.ValueOf(result)
+	value.
+
+	for k, t := range values {
+		names := strings.Split(k, ".")
+		var value reflect.Value = vc
+		for i, name := range names {
+			name = strings.Title(name)
+			if i == 0 {
+				if reflect.ValueOf(sc).Elem().FieldByName(name).IsValid() {
+					a.Server.Logger.Printf("Controller's property should not be changed by mapper.")
+					break
+				}
+			}
+			if value.Kind() != reflect.Struct {
+				a.Server.Logger.Printf("arg error, value kind is %v", value.Kind())
+				break
+			}
+
+			if i != len(names)-1 {
+				value = value.FieldByName(name)
+				if !value.IsValid() {
+					a.Server.Logger.Printf("(%v value is not valid %v)", name, value)
+					break
+				}
+			} else {
+				tv := value.FieldByName(name)
+				if !tv.IsValid() {
+					//a.Server.Logger.Printf("struct %v has no field named %v", value, name)
+					break
+				}
+				if !tv.CanSet() {
+					a.Server.Logger.Printf("can not set %v", k)
+					break
+				}
+				var l interface{}
+				switch k := tv.Kind(); k {
+				case reflect.String:
+					l = v
+					tv.Set(reflect.ValueOf(l))
+				case reflect.Bool:
+					l = (v != "false" && v != "0")
+					tv.Set(reflect.ValueOf(l))
+				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+					x, err := strconv.Atoi(v)
+					if err != nil {
+						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
+						break
+					}
+					l = x
+					tv.Set(reflect.ValueOf(l))
+				case reflect.Int64:
+					x, err := strconv.ParseInt(v, 10, 64)
+					if err != nil {
+						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
+						break
+					}
+					l = x
+					tv.Set(reflect.ValueOf(l))
+				case reflect.Float32, reflect.Float64:
+					x, err := strconv.ParseFloat(v, 64)
+					if err != nil {
+						a.Server.Logger.Printf("arg " + v + " as float64: " + err.Error())
+						break
+					}
+					l = x
+					tv.Set(reflect.ValueOf(l))
+				case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+					x, err := strconv.ParseUint(v, 10, 64)
+					if err != nil {
+						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
+						break
+					}
+					l = x
+					tv.Set(reflect.ValueOf(l))
+				case reflect.Struct:
+					if tvf, ok := tv.Interface().(FromConversion); ok {
+						err := tvf.FromString(v)
+						if err != nil {
+							a.Server.Logger.Printf("struct %v invoke FromString faild", tvf)
+						}
+					} else {
+						a.Server.Logger.Printf("can not set an struct which is not implement Fromconversion interface")
+					}
+				case reflect.Ptr:
+					a.Server.Logger.Printf("can not set an ptr")
+				case reflect.Slice, reflect.Array:
+					a.Server.Logger.Printf("slice or array %v", t)
+					tv.Set(reflect.ValueOf(t))
+				default:
+					break
+				}
+			}
+		}
+}*/
 
 // StructMap function mapping params to controller's properties
 func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
