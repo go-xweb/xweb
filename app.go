@@ -86,6 +86,7 @@ func (a *App) initApp() {
 		a.TemplateMgr.Init(a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
 	}
 	a.FuncMaps["StaticUrl"] = a.StaticUrl
+	a.FuncMaps["XsrfName"] = XsrfName
 
 	if a.AppConfig.SessionOn {
 		identify := fmt.Sprintf("xweb_%v_%v_%v", a.Server.Config.Addr,

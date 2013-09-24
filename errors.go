@@ -27,21 +27,21 @@ func Abort(code int, content ...string) error {
 }
 
 func NotFound(content ...string) error {
-	return Abort(http.StatusNotFound)
+	return Abort(http.StatusNotFound, content...)
 }
 
 func NotSupported(content ...string) error {
-	return Abort(http.StatusMethodNotAllowed)
+	return Abort(http.StatusMethodNotAllowed, content...)
 }
 
 func InterError(content ...string) error {
-	return Abort(http.StatusInternalServerError)
+	return Abort(http.StatusInternalServerError, content...)
 }
 
 func Forbidden(content ...string) error {
-	return Abort(http.StatusForbidden)
+	return Abort(http.StatusForbidden, content...)
 }
 
 func Unauthorized(content ...string) error {
-	return Abort(http.StatusUnauthorized)
+	return Abort(http.StatusUnauthorized, content...)
 }

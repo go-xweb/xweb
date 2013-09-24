@@ -46,7 +46,11 @@ type Mapper struct {
 
 type T map[string]interface{}
 
-func (c *Action) XsrfFormHtml() template.HTML {
+func XsrfName() string {
+	return XSRF_TAG
+}
+
+func (c *Action) XsrfValue() string {
 	var val string = ""
 	cookie, err := c.GetCookie(XSRF_TAG)
 	if err != nil {
@@ -55,8 +59,12 @@ func (c *Action) XsrfFormHtml() template.HTML {
 	} else {
 		val = cookie.Value
 	}
-	return template.HTML(fmt.Sprintf(`<input type="hidden" name="_xsrf" value="%v"/>`,
-		val))
+	return val
+}
+
+func (c *Action) XsrfFormHtml() template.HTML {
+	return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v"/>`,
+		XSRF_TAG, c.XsrfValue()))
 }
 
 // WriteString writes string data into the response object.
@@ -286,6 +294,7 @@ func (c *Action) Include(tmplName string) interface{} {
 func (c *Action) NamedRender(name, content string, params ...*T) error {
 	c.f["include"] = c.Include
 	c.f["XsrfFormHtml"] = c.XsrfFormHtml
+	c.f["XsrfValue"] = c.XsrfValue
 
 	c.RootTemplate = template.New(name)
 	if len(params) >= 1 {
