@@ -597,7 +597,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 						if err != nil {
 							a.Server.Logger.Printf("struct %v invoke FromString faild", tvf)
 						}
-					} else if tv.Type().Name() == "time.Time" {
+					} else if tv.Type().String() == "time.Time" {
 						x, err := time.Parse("2006-01-02 15:04:05", v)
 						if err != nil {
 							x, err = time.Parse("2006-01-02 15:04:05.000 -0700", v)
