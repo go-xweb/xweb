@@ -4,7 +4,7 @@ xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些
 
 [English](https://github.com/lunny/xweb/blob/master/README_EN.md)
 
-[![Build Status](https://drone.io/github.com/lunny/xweb/status.png)](https://drone.io/github.com/lunny/xweb/latest)
+[![Build Status](https://drone.io/github.com/lunny/xweb/status.png)](https://drone.io/github.com/lunny/xweb/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/lunny/xweb)
 
 ## 更新日志
 
