@@ -19,6 +19,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
 	"strconv"
@@ -63,8 +64,11 @@ func (c *Action) XsrfValue() string {
 }
 
 func (c *Action) XsrfFormHtml() template.HTML {
-	return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v"/>`,
-		XSRF_TAG, c.XsrfValue()))
+	if c.App.AppConfig.CheckXrsf {
+		return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v"/>`,
+			XSRF_TAG, c.XsrfValue()))
+	}
+	return template.HTML("")
 }
 
 // WriteString writes string data into the response object.
@@ -297,16 +301,17 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 	c.f["XsrfValue"] = c.XsrfValue
 
 	c.RootTemplate = template.New(name)
-	if len(params) >= 1 {
+
+	if len(params) > 0 {
 		for k, v := range *params[0] {
-			c.T[k] = v
-		}
-		if len(params) >= 2 {
-			for k, v := range *params[1] {
+			if reflect.ValueOf(v).Type().Kind() == reflect.Func {
 				c.f[k] = v
+			} else {
+				c.T[k] = v
 			}
 		}
 	}
+
 	c.RootTemplate.Funcs(c.getFuncs())
 
 	tmpl, err := c.RootTemplate.Parse(string(content))
@@ -376,12 +381,22 @@ func (c *Action) AddHeader(key string, value string) {
 	c.Header().Add(key, value)
 }
 
-func (c *Action) AddVar(name string, tVar interface{}) {
-	c.T[name] = tVar
+func (c *Action) AddFunc(name string, fun interface{}) {
+	c.f[name] = fun
 }
 
-func (c *Action) AddFunc(name string, tFunc interface{}) {
-	c.f[name] = tFunc
+func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
+	if reflect.ValueOf(varOrFunc).Type().Kind() == reflect.Func {
+		c.f[name] = varOrFunc
+	} else {
+		c.T[name] = varOrFunc
+	}
+}
+
+func (c *Action) AddTmplVars(t *T) {
+	for name, value := range *t {
+		c.AddTmplVar(name, value)
+	}
 }
 
 func (c *Action) ServeJson(obj interface{}) {
@@ -408,6 +423,10 @@ func (c *Action) ServeXml(obj interface{}) {
 
 func (c *Action) GetSlice(key string) []string {
 	return c.Request.Form[key]
+}
+
+func (c *Action) GetForm() url.Values {
+	return c.Request.Form
 }
 
 func (c *Action) GetString(key string) string {

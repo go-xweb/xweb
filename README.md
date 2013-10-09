@@ -2,12 +2,13 @@
 
 xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些类似。
 
-[English]()
+[English](https://github.com/lunny/xweb/blob/master/README_EN.md)
 
 [![Build Status](https://drone.io/github.com/lunny/xweb/status.png)](https://drone.io/github.com/lunny/xweb/latest)
 
 ## 更新日志
 
+* **v0.1.1** : App新增AutoAction方法；Action新增AddTmplVar方法；Render方法的模版渲染方法中可以通过T混合传入函数和变量，更新了[快速入门](https://github.com/lunny/xweb/tree/master/docs/intro.md)。
 * **v0.1.0** : 初始版本
 
 ## 特性

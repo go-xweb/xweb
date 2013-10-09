@@ -22,10 +22,10 @@ func (c *MainAction) IsWorld() bool {
 
 func (c *MainAction) Init() {
 	fmt.Println("init mainaction")
-	c.AddFunc("isWorld", c.IsWorld)
+	c.AddTmplVar("isWorld", c.IsWorld)
 }
 
 func main() {
-	AddRouter("/", &MainAction{})
+	AddAction(&MainAction{})
 	Run("0.0.0.0:9999")
 }

@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	. "xweb"
+	"xweb"
 )
 
 type MainAction struct {
-	Action
+	xweb.Action
 
-	home Mapper `xweb:"/"`
+	home xweb.Mapper `xweb:"/"`
 }
 
 func hello1() string {
@@ -24,11 +24,10 @@ func hello3() string {
 }
 
 func (this *MainAction) Home() {
-	err := this.Render("home.html", &T{
+	err := this.Render("home.html", &xweb.T{
 		"title":  "模版测试例子",
 		"body":   "模版具体内容",
 		"footer": "版权所有",
-	}, &T{
 		"hello1": hello1,
 		"hello2": hello2,
 		"hello3": hello3,
@@ -39,6 +38,6 @@ func (this *MainAction) Home() {
 }
 
 func main() {
-	AddAction(&MainAction{})
-	Run("0.0.0.0:8888")
+	xweb.AddAction(&MainAction{})
+	xweb.Run("0.0.0.0:8888")
 }

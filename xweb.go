@@ -81,6 +81,10 @@ func Close() {
 	mainServer.Close()
 }
 
+func AutoAction(c ...interface{}) {
+	mainServer.AutoAction(c...)
+}
+
 func AddAction(c ...interface{}) {
 	mainServer.AddAction(c...)
 }
@@ -89,8 +93,16 @@ func AddRouter(url string, c interface{}) {
 	mainServer.AddRouter(url, c)
 }
 
+func AddFilter(filter Filter) {
+	mainServer.AddFilter(filter)
+}
+
 func AddApp(a *App) {
 	mainServer.AddApp(a)
+}
+
+func AddConfig(name string, value interface{}) {
+	mainServer.AddConfig(name, value)
 }
 
 func SetTemplateDir(dir string) {

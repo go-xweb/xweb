@@ -28,6 +28,7 @@ type App struct {
 	Config         map[string]interface{}
 	Actions        map[reflect.Type]string
 	FuncMaps       template.FuncMap
+	VarMaps        T
 	SessionManager *session.Manager //Session manager
 	RootTemplate   *template.Template
 	ErrorTemplate  *template.Template
@@ -72,6 +73,7 @@ func NewApp(path string) *App {
 		Config:       map[string]interface{}{},
 		Actions:      map[reflect.Type]string{},
 		FuncMaps:     defaultFuncs,
+		VarMaps:      T{},
 		filters:      make([]Filter, 0),
 		StaticVerMgr: new(StaticVerMgr),
 		TemplateMgr:  new(TemplateMgr),
@@ -127,8 +129,23 @@ func (app *App) AddAction(cs ...interface{}) {
 	}
 }
 
-func (a *App) AddFunc(name string, fun interface{}) {
-	a.FuncMaps[name] = fun
+func (app *App) AutoAction(cs ...interface{}) {
+	for _, c := range cs {
+		t := reflect.Indirect(reflect.ValueOf(c)).Type()
+		name := t.Name()
+		if strings.HasSuffix(name, "Action") {
+			path := strings.ToLower(name[:len(name)-6])
+			app.AddRouter(JoinPath(app.BasePath, path), c)
+		}
+	}
+}
+
+func (app *App) AddTmplVar(name string, varOrFun interface{}) {
+	if reflect.TypeOf(varOrFun).Kind() == reflect.Func {
+		app.FuncMaps[name] = varOrFun
+	} else {
+		app.VarMaps[name] = varOrFun
+	}
 }
 
 func (app *App) AddFilter(filter Filter) {
@@ -274,7 +291,9 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		}
 		vc := reflect.New(route.ctype)
 		c := Action{Request: req, App: a, ResponseWriter: w, T: T{}, f: T{}}
-
+		for k, v := range a.VarMaps {
+			c.T[k] = v
+		}
 		fieldA := vc.Elem().FieldByName("Action")
 		if fieldA.IsValid() {
 			fieldA.Set(reflect.ValueOf(c))

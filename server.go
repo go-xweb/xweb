@@ -56,8 +56,20 @@ func (s *Server) AddAction(cs ...interface{}) {
 	s.RootApp.AddAction(cs...)
 }
 
+func (s *Server) AutoAction(c ...interface{}) {
+	s.RootApp.AutoAction(c...)
+}
+
 func (s *Server) AddRouter(url string, c interface{}) {
 	s.RootApp.AddRouter(url, c)
+}
+
+func (s *Server) AddFilter(filter Filter) {
+	s.RootApp.AddFilter(filter)
+}
+
+func (s *Server) AddConfig(name string, value interface{}) {
+	s.RootApp.Config[name] = value
 }
 
 func (s *Server) initServer() {

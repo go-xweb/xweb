@@ -1,6 +1,7 @@
 package xweb
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -10,14 +11,8 @@ type AbortError struct {
 }
 
 func (a *AbortError) Error() string {
-	return a.Content
+	return fmt.Sprintf("%v %v", a.Code, a.Content)
 }
-
-/*func Error(w ResponseWriter, err error) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(code)
-	fmt.Fprintln(w, err)
-}*/
 
 func Abort(code int, content ...string) error {
 	if len(content) >= 1 {
@@ -34,7 +29,7 @@ func NotSupported(content ...string) error {
 	return Abort(http.StatusMethodNotAllowed, content...)
 }
 
-func InterError(content ...string) error {
+func InternalServerError(content ...string) error {
 	return Abort(http.StatusInternalServerError, content...)
 }
 
