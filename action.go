@@ -385,6 +385,10 @@ func (c *Action) AddFunc(name string, fun interface{}) {
 	c.f[name] = fun
 }
 
+func (c *Action) AddVar(name string, tvar interface{}) {
+	c.T[name] = tvar
+}
+
 func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
 	if reflect.ValueOf(varOrFunc).Type().Kind() == reflect.Func {
 		c.f[name] = varOrFunc
