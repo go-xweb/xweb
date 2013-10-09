@@ -142,7 +142,7 @@ func (app *App) AutoAction(cs ...interface{}) {
 
 // @deprected, this function will be deleted in furtuer, please use AddTmplVar instead
 func (app *App) AddFunc(name string, fun interface{}) {
-	app.FuncMaps[name] = varOrFun
+	app.FuncMaps[name] = fun
 }
 
 func (app *App) AddTmplVar(name string, varOrFun interface{}) {
