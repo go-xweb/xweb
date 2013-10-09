@@ -597,6 +597,17 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 						if err != nil {
 							a.Server.Logger.Printf("struct %v invoke FromString faild", tvf)
 						}
+					} else if tv.Type().Name() == "time.Time" {
+						x, err := time.Parse("2006-01-02 15:04:05", v)
+						if err != nil {
+							x, err = time.Parse("2006-01-02 15:04:05.000 -0700", v)
+							if err != nil {
+								a.Server.Logger.Printf("unsupported time format: " + v)
+								break
+							}
+						}
+						l = x
+						tv.Set(reflect.ValueOf(l))
 					} else {
 						a.Server.Logger.Printf("can not set an struct which is not implement Fromconversion interface")
 					}
