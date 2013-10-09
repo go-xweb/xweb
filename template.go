@@ -71,6 +71,10 @@ func Add(left interface{}, right interface{}) interface{} {
 	}
 }
 
+func Now() time.Time {
+	return time.Now()
+}
+
 func FormatDate(t time.Time, format string) string {
 	return t.Format(format)
 }
@@ -93,6 +97,7 @@ func Html(raw string) template.HTML {
 
 var (
 	defaultFuncs template.FuncMap = template.FuncMap{
+		"Now":        Now,
 		"Eq":         Eq,
 		"FormatDate": FormatDate,
 		"Html":       Html,
