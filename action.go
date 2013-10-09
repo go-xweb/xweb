@@ -381,10 +381,12 @@ func (c *Action) AddHeader(key string, value string) {
 	c.Header().Add(key, value)
 }
 
+// @deprected, this function will be deleted in furtuer, please use AddTmplVar instead
 func (c *Action) AddFunc(name string, fun interface{}) {
 	c.f[name] = fun
 }
 
+// @deprected, this function will be deleted in furtuer, please use AddTmplVar instead
 func (c *Action) AddVar(name string, tvar interface{}) {
 	c.T[name] = tvar
 }
