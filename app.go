@@ -153,6 +153,12 @@ func (app *App) AddTmplVar(name string, varOrFun interface{}) {
 	}
 }
 
+func (app *App) AddTmplVars(t *T) {
+	for name, value := range *t {
+		app.AddTmplVar(name, value)
+	}
+}
+
 func (app *App) AddFilter(filter Filter) {
 	app.filters = append(app.filters, filter)
 }
