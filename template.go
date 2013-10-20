@@ -71,6 +71,55 @@ func Add(left interface{}, right interface{}) interface{} {
 	}
 }
 
+func Subtract(left interface{}, right interface{}) interface{} {
+	var rleft, rright int64
+	var fleft, fright float64
+	var isInt bool = true
+	switch left.(type) {
+	case int:
+		rleft = int64(left.(int))
+	case int8:
+		rleft = int64(left.(int8))
+	case int16:
+		rleft = int64(left.(int16))
+	case int32:
+		rleft = int64(left.(int32))
+	case int64:
+		rleft = left.(int64)
+	case float32:
+		fleft = float64(left.(float32))
+		isInt = false
+	case float64:
+		fleft = left.(float64)
+		isInt = false
+	}
+
+	switch right.(type) {
+	case int:
+		rright = int64(right.(int))
+	case int8:
+		rright = int64(right.(int8))
+	case int16:
+		rright = int64(right.(int16))
+	case int32:
+		rright = int64(right.(int32))
+	case int64:
+		rright = right.(int64)
+	case float32:
+		fright = float64(left.(float32))
+		isInt = false
+	case float64:
+		fleft = left.(float64)
+		isInt = false
+	}
+
+	if isInt {
+		return rleft - rright
+	} else {
+		return fleft + float64(rleft) - (fright + float64(rright))
+	}
+}
+
 func Now() time.Time {
 	return time.Now()
 }
@@ -102,6 +151,7 @@ var (
 		"FormatDate": FormatDate,
 		"Html":       Html,
 		"Add":        Add,
+		"Subtract":   Subtract,
 		"IsNil":      IsNil,
 	}
 )
