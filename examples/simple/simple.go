@@ -2,25 +2,24 @@ package main
 
 import (
 	"fmt"
-	"github.com/lunny/xorm"
-	_ "github.com/mattn/go-sqlite3"
-	//"xorm"
-	//. "github.com/lunny/xweb"
 	"log"
 	"os"
-	. "xweb"
+
+	"github.com/lunny/xorm"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/lunny/xweb"
 )
 
 type MainAction struct {
-	Action
+	xweb.Action
 
-	root   Mapper `xweb:"GET /"`
-	list   Mapper `xweb:"GET /list"`
-	login  Mapper
-	logout Mapper
-	add    Mapper `xweb:"GET|POST /add"`
-	del    Mapper `xweb:"GET /delete"`
-	edit   Mapper `xweb:"/edit"`
+	root   xweb.Mapper `xweb:"GET /"`
+	list   xweb.Mapper `xweb:"GET /list"`
+	login  xweb.Mapper
+	logout xweb.Mapper
+	add    xweb.Mapper `xweb:"GET|POST /add"`
+	del    xweb.Mapper `xweb:"GET /delete"`
+	edit   xweb.Mapper `xweb:"/edit"`
 
 	Id   int64
 	User User
@@ -165,10 +164,10 @@ func (c *MainAction) Edit() {
 }
 
 func main() {
-	AddAction(&MainAction{})
+	xweb.AddAction(&MainAction{})
 
-	app := MainServer().RootApp
-	filter := NewLoginFilter(app, "userId", "/login")
+	app := xweb.MainServer().RootApp
+	filter := xweb.NewLoginFilter(app, "userId", "/login")
 	filter.AddAnonymousUrls("/", "/login", "/logout")
 	app.AddFilter(filter)
 	//app.AppConfig.StaticFileVersion = false
@@ -179,6 +178,6 @@ func main() {
 		return
 	}
 	logger := log.New(f, "", log.Ldate|log.Ltime)
-	SetLogger(logger)
-	Run("0.0.0.0:8080")
+	xweb.SetLogger(logger)
+	xweb.Run("0.0.0.0:8080")
 }

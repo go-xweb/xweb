@@ -1,9 +1,7 @@
 package main
 
 import (
-	//"fmt"
-	//. "github.com/lunny/xweb"
-	. "xweb"
+	"github.com/lunny/xweb"
 )
 
 var page = `
@@ -24,9 +22,9 @@ var page = `
 `
 
 type MainAction struct {
-	Action
+	xweb.Action
 
-	upload Mapper `xweb:"/"`
+	upload xweb.Mapper `xweb:"/"`
 
 	Inputs []string
 }
@@ -42,6 +40,6 @@ func (c *MainAction) Upload() {
 }
 
 func main() {
-	AddAction(&MainAction{})
-	Run("0.0.0.0:9999")
+	xweb.AddAction(&MainAction{})
+	xweb.Run("0.0.0.0:9999")
 }

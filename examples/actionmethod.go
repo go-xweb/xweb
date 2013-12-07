@@ -1,15 +1,14 @@
 package main
 
 import (
-	//. "github.com/lunny/xweb"
 	"fmt"
-	. "xweb"
+	"github.com/lunny/xweb"
 )
 
 type MainAction struct {
-	Action
+	xweb.Action
 
-	hello Mapper `xweb:"/(.*)"`
+	hello xweb.Mapper `xweb:"/(.*)"`
 }
 
 var content string = `
@@ -28,6 +27,6 @@ func (c *MainAction) Hello(world string) {
 }
 
 func main() {
-	AddAction(&MainAction{})
-	Run("0.0.0.0:9999")
+	xweb.AddAction(&MainAction{})
+	xweb.Run("0.0.0.0:9999")
 }

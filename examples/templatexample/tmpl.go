@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"xweb"
+	"github.com/lunny/xweb"
 )
 
 type MainAction struct {
@@ -23,8 +22,8 @@ func hello3() string {
 	return "this hello is in footer"
 }
 
-func (this *MainAction) Home() {
-	err := this.Render("home.html", &xweb.T{
+func (this *MainAction) Home() error {
+	return this.Render("home.html", &xweb.T{
 		"title":  "模版测试例子",
 		"body":   "模版具体内容",
 		"footer": "版权所有",
@@ -32,9 +31,6 @@ func (this *MainAction) Home() {
 		"hello2": hello2,
 		"hello3": hello3,
 	})
-	if err != nil {
-		fmt.Println(err)
-	}
 }
 
 func main() {

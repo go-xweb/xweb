@@ -64,7 +64,7 @@ func NewApp(path string) *App {
 			TemplateDir:       "templates",
 			SessionOn:         true,
 			SessionTimeout:    3600,
-			MaxUploadSize:     10 * 1024 * 1024,
+			MaxUploadSize:     50 * 1024 * 1024,
 			StaticFileVersion: true,
 			CacheTemplates:    true,
 			ReloadTemplates:   true,

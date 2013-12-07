@@ -2,9 +2,8 @@ package main
 
 import (
 	"fmt"
-	. "github.com/lunny/xweb"
+	"github.com/lunny/xweb"
 	"html"
-	//. "xweb"
 )
 
 var cookieName = "cookie"
@@ -26,10 +25,10 @@ var form = `
 `
 
 type CookieAction struct {
-	Action
+	xweb.Action
 
-	index  Mapper `xweb:"/"`
-	update Mapper
+	index  xweb.Mapper `xweb:"/"`
+	update xweb.Mapper
 }
 
 func (this *CookieAction) Index() string {
@@ -46,14 +45,14 @@ func (this *CookieAction) Index() string {
 
 func (this *CookieAction) Update() {
 	if this.GetString("submit") == "Delete" {
-		this.SetCookie(NewCookie(cookieName, "", -1))
+		this.SetCookie(xweb.NewCookie(cookieName, "", -1))
 	} else {
-		this.SetCookie(NewCookie(cookieName, this.GetString("cookie"), 0))
+		this.SetCookie(xweb.NewCookie(cookieName, this.GetString("cookie"), 0))
 	}
 	this.Redirect("/", 301)
 }
 
 func main() {
-	AddAction(&CookieAction{})
-	Run("0.0.0.0:9999")
+	xweb.AddAction(&CookieAction{})
+	xweb.Run("0.0.0.0:9999")
 }

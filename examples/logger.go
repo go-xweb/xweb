@@ -1,16 +1,15 @@
 package main
 
 import (
-	. "github.com/lunny/xweb"
+	"github.com/lunny/xweb"
 	"log"
 	"os"
-	//. "xweb"
 )
 
 type MainAction struct {
-	Action
+	xweb.Action
 
-	hello Mapper `xweb:"/(.*)"`
+	hello xweb.Mapper `xweb:"/(.*)"`
 }
 
 func (c *MainAction) Hello(world string) {
@@ -25,7 +24,7 @@ func main() {
 	}
 	logger := log.New(f, "", log.Ldate|log.Ltime)
 
-	AddAction(&MainAction{})
-	SetLogger(logger)
-	Run("0.0.0.0:9999")
+	xweb.AddAction(&MainAction{})
+	xweb.SetLogger(logger)
+	xweb.Run("0.0.0.0:9999")
 }

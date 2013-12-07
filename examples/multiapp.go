@@ -1,14 +1,13 @@
 package main
 
 import (
-	. "github.com/lunny/xweb"
-	//. "xweb"
+	"github.com/lunny/xweb"
 )
 
 type MainAction struct {
-	Action
+	xweb.Action
 
-	hello Mapper `xweb:"/(.*)"`
+	hello xweb.Mapper `xweb:"/(.*)"`
 }
 
 func (c *MainAction) Hello(world string) {
@@ -16,13 +15,13 @@ func (c *MainAction) Hello(world string) {
 }
 
 func main() {
-	app1 := NewApp("/")
+	app1 := xweb.NewApp("/")
 	app1.AddAction(&MainAction{})
-	AddApp(app1)
+	xweb.AddApp(app1)
 
-	app2 := NewApp("/user/")
+	app2 := xweb.NewApp("/user/")
 	app2.AddAction(&MainAction{})
-	AddApp(app2)
+	xweb.AddApp(app2)
 
-	Run("0.0.0.0:9999")
+	xweb.Run("0.0.0.0:9999")
 }
