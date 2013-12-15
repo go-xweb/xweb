@@ -1,32 +1,32 @@
 package main
 
 import (
-	"fmt"
-	"github.com/lunny/xweb"
+    "fmt"
+    "github.com/lunny/xweb"
 )
 
 type MainAction struct {
-	xweb.Action
+    xweb.Action
 
-	hello xweb.Mapper `xweb:"/(.*)"`
+    hello xweb.Mapper `xweb:"/(.*)"`
 }
 
 var content string = `
-	base path is {{.Basepath}}
+    base path is {{.Basepath}}
 `
 
 func (c *MainAction) Basepath() string {
-	return c.App.BasePath
+    return c.App.BasePath
 }
 
 func (c *MainAction) Hello(world string) {
-	err := c.RenderString(content)
-	if err != nil {
-		fmt.Println(err)
-	}
+    err := c.RenderString(content)
+    if err != nil {
+        fmt.Println(err)
+    }
 }
 
 func main() {
-	xweb.AddAction(&MainAction{})
-	xweb.Run("0.0.0.0:9999")
+    xweb.AddAction(&MainAction{})
+    xweb.Run("0.0.0.0:9999")
 }

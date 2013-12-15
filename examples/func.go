@@ -1,30 +1,30 @@
 package main
 
 import (
-	"github.com/lunny/xweb"
-	"fmt"
+    "github.com/lunny/xweb"
+    "fmt"
 )
 
 type MainAction struct {
-	xweb.Action
+    xweb.Action
 
-	hello xweb.Mapper `xweb:"/(.*)"`
+    hello xweb.Mapper `xweb:"/(.*)"`
 }
 
 func (c *MainAction) Hello(world string) error {
-	return c.RenderString(fmt.Sprintf("hello {{if isWorld}}%v{{else}}go{{end}}", world))
+    return c.RenderString(fmt.Sprintf("hello {{if isWorld}}%v{{else}}go{{end}}", world))
 }
 
 func (c *MainAction) IsWorld() bool {
-	return true
+    return true
 }
 
 func (c *MainAction) Init() {
-	fmt.Println("init mainaction")
-	c.AddTmplVar("isWorld", c.IsWorld)
+    fmt.Println("init mainaction")
+    c.AddTmplVar("isWorld", c.IsWorld)
 }
 
 func main() {
-	xweb.AddAction(&MainAction{})
-	xweb.Run("0.0.0.0:9999")
+    xweb.AddAction(&MainAction{})
+    xweb.Run("0.0.0.0:9999")
 }
