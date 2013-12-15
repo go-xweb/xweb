@@ -21,15 +21,15 @@ func init() {
     //contextType = reflect.TypeOf(Context{})
     //find the location of the exe file
     /*wd, _ := os.Getwd()
-    arg0 := path.Clean(os.Args[0])
-    var exeFile string
-    if strings.HasPrefix(arg0, "/") {
-        exeFile = arg0
-    } else {
-        //TODO for robustness, search each directory in $PATH
-        exeFile = path.Join(wd, arg0)
-    }
-    _, _ := path.Split(exeFile)*/
+      arg0 := path.Clean(os.Args[0])
+      var exeFile string
+      if strings.HasPrefix(arg0, "/") {
+          exeFile = arg0
+      } else {
+          //TODO for robustness, search each directory in $PATH
+          exeFile = path.Join(wd, arg0)
+      }
+      _, _ := path.Split(exeFile)*/
     return
 }
 
@@ -120,6 +120,10 @@ func SetLogger(logger *log.Logger) {
 
 func MainServer() *Server {
     return mainServer
+}
+
+func RootApp() *App {
+    return MainServer().RootApp
 }
 
 // Config is the configuration of the main server.
