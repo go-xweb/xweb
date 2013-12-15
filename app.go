@@ -322,6 +322,15 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
             params := []reflect.Value{}
             initM.Call(params)
         }
+        
+		//[SWH|+]-Before-Hook
+		structName := reflect.ValueOf(route.ctype.String())
+		actionName := reflect.ValueOf(route.handler)
+		structAction := []reflect.Value{structName,actionName}
+		initM = vc.MethodByName("Before")
+		if initM.IsValid() {
+			initM.Call(structAction)
+		}
 
         ret, err := a.safelyCall(vc, route.handler, args)
         if err != nil {
@@ -330,6 +339,15 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
             c.Abort(500, "Server Error")
             return
         }
+        
+        //[SWH|+]-After-Hook
+		initM = vc.MethodByName("After")
+		if initM.IsValid() {
+			actionResult:=reflect.ValueOf(ret)
+			structAction=[]reflect.Value{structName,actionName,actionResult}
+			initM.Call(structAction)
+		}
+		
         if len(ret) == 0 {
             return
         }
