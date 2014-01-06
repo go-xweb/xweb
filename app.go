@@ -58,7 +58,14 @@ type route struct {
 	ctype   reflect.Type
 }
 
-func NewApp(path string,name string) *App {
+func NewApp(args ...string) *App {
+	path := args[0]
+	name := ""
+	if len(args)==1 {
+		name = strings.Replace(path, "/", "_", -1)
+	}else{
+		name = args[1]
+	}
 	return &App{
 		BasePath: path,
 		Name: name, //[SWH|+]
