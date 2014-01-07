@@ -1,7 +1,7 @@
 package main
 
 import (
-    "github.com/lunny/xweb"
+	"github.com/lunny/xweb"
 )
 
 var page = `
@@ -22,24 +22,24 @@ var page = `
 `
 
 type MainAction struct {
-    xweb.Action
+	xweb.Action
 
-    upload xweb.Mapper `xweb:"/"`
+	upload xweb.Mapper `xweb:"/"`
 
-    Inputs []string
+	Inputs []string
 }
 
 func (c *MainAction) Upload() {
-    if c.Method() == "GET" {
-        c.Write(page)
-    } else if c.Method() == "POST" {
-        for i, input := range c.Inputs {
-            c.Write("<p>input %v: %v </p>", i, input)
-        }
-    }
+	if c.Method() == "GET" {
+		c.Write(page)
+	} else if c.Method() == "POST" {
+		for i, input := range c.Inputs {
+			c.Write("<p>input %v: %v </p>", i, input)
+		}
+	}
 }
 
 func main() {
-    xweb.AddAction(&MainAction{})
-    xweb.Run("0.0.0.0:9999")
+	xweb.AddAction(&MainAction{})
+	xweb.Run("0.0.0.0:9999")
 }
