@@ -1,30 +1,30 @@
 package main
 
 import (
-    "github.com/lunny/xweb"
-    "log"
-    "os"
+	"github.com/lunny/xweb"
+	"log"
+	"os"
 )
 
 type MainAction struct {
-    xweb.Action
+	xweb.Action
 
-    hello xweb.Mapper `xweb:"/(.*)"`
+	hello xweb.Mapper `xweb:"/(.*)"`
 }
 
 func (c *MainAction) Hello(world string) {
-    c.Write("hello %v", world)
+	c.Write("hello %v", world)
 }
 
 func main() {
-    f, err := os.Create("server.log")
-    if err != nil {
-        println(err.Error())
-        return
-    }
-    logger := log.New(f, "", log.Ldate|log.Ltime)
+	f, err := os.Create("server.log")
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	logger := log.New(f, "", log.Ldate|log.Ltime)
 
-    xweb.AddAction(&MainAction{})
-    xweb.SetLogger(logger)
-    xweb.Run("0.0.0.0:9999")
+	xweb.AddAction(&MainAction{})
+	xweb.SetLogger(logger)
+	xweb.Run("0.0.0.0:9999")
 }
