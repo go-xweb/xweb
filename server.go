@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 // ServerConfig is configuration for server objects.
@@ -67,6 +67,7 @@ func (s *Server) AddApp(a *App) {
 	}
 
 	a.Server = s
+	a.Logger = s.Logger
 	if a.BasePath == "/" {
 		s.RootApp = a
 	}
