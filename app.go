@@ -459,26 +459,27 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 		var value reflect.Value = vc
 		for i, name := range names {
 			name = strings.Title(name)
-			if i == 0 {
-				if reflect.ValueOf(sc).Elem().FieldByName(name).IsValid() {
-					a.Logger.Printf("Action's property should not be changed by mapper.\n")
+			if i != len(names)-1 {
+				if value.Kind() != reflect.Struct {
+					a.Logger.Printf("arg error, value kind is %v\n", value.Kind())
 					break
 				}
-			}
-			if value.Kind() == reflect.Ptr {
-				value.Set(reflect.New(value.Type().Elem()))
-				value = value.Elem()
-			}
-			if value.Kind() != reflect.Struct {
-				a.Logger.Printf("arg error, value kind is %v\n", value.Kind())
-				break
-			}
 
-			if i != len(names)-1 {
 				value = value.FieldByName(name)
 				if !value.IsValid() {
-					a.Logger.Printf("(%v value is not valid %v)\n", name, value)
+					a.Logger.Printf("(%v value is not valid %v)\n", name, value.Interface())
 					break
+				}
+				if !value.CanSet() {
+					a.Logger.Printf("can not set %v -> %v\n", name, value.Interface())
+					break
+				}
+
+				if value.Kind() == reflect.Ptr {
+					if value.IsNil() {
+						value.Set(reflect.New(value.Type().Elem()))
+					}
+					value = value.Elem()
 				}
 			} else {
 				tv := value.FieldByName(name)
@@ -562,8 +563,56 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Ptr:
 					a.Logger.Printf("can not set an ptr of ptr\n")
 				case reflect.Slice, reflect.Array:
-					a.Logger.Printf("slice or array %v\n", t)
-					tv.Set(reflect.ValueOf(t))
+					// TODO: currently only support []string, need to
+					tt := tv.Type().Elem()
+					tk := tt.Kind()
+					if tk == reflect.String {
+						tv.Set(reflect.ValueOf(t))
+						break
+					}
+
+					if tv.IsNil() {
+						tv.Set(reflect.MakeSlice(tv.Type(), len(t), len(t)))
+					}
+
+					for i, s := range t {
+						var err error
+						switch tk {
+						case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int8, reflect.Int64:
+							var v int64
+							v, err = strconv.ParseInt(s, 10, tt.Bits())
+							if err == nil {
+								tv.Index(i).SetInt(v)
+							}
+						case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+							var v uint64
+							v, err = strconv.ParseUint(s, 10, tt.Bits())
+							if err == nil {
+								tv.Index(i).SetUint(v)
+							}
+						case reflect.Float32, reflect.Float64:
+							var v float64
+							v, err = strconv.ParseFloat(s, tt.Bits())
+							if err == nil {
+								tv.Index(i).SetFloat(v)
+							}
+						case reflect.Bool:
+							var v bool
+							v, err = strconv.ParseBool(s)
+							if err == nil {
+								tv.Index(i).SetBool(v)
+							}
+						case reflect.Complex64, reflect.Complex128:
+							// TODO:
+							err = fmt.Errorf("unsupported slice element type %v", tk.String())
+						default:
+							err = fmt.Errorf("unsupported slice element type %v", tk.String())
+						}
+						if err != nil {
+							fmt.Println("slice error:", name, err)
+							break
+						}
+					}
 				default:
 					break
 				}
