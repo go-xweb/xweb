@@ -40,7 +40,7 @@ func JoinPath(paths ...string) string {
 }
 
 func PageSize(total, limit int) int {
-	if total == 0 {
+	if total <= 0 {
 		return 1
 	} else {
 		x := total % limit

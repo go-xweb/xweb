@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"os"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 
 type App struct {
 	BasePath       string
-	Name			string //[SWH|+]
+	Name           string //[SWH|+]
 	routes         []route
 	filters        []Filter
 	Server         *Server
@@ -35,6 +36,7 @@ type App struct {
 	ErrorTemplate  *template.Template
 	StaticVerMgr   *StaticVerMgr
 	TemplateMgr    *TemplateMgr
+	ContentEncoding string
 }
 
 type AppConfig struct {
@@ -376,11 +378,13 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			c.Abort(500, "Server Error")
 			return
 		}
+
 		c.SetHeader("Content-Length", strconv.Itoa(len(content)))
 		_, err = c.ResponseWriter.Write(content)
 		if err != nil {
 			a.Server.Logger.Println("Error during write: ", err)
 		}
+
 		return
 	}
 
@@ -432,13 +436,46 @@ func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) 
 	return function.Call(args), nil
 }
 
+// Init content-length header.
+func (a *App) InitHeadContent(w http.ResponseWriter, contentLength int64) {
+	if a.ContentEncoding == "gzip" {
+		w.Header().Set("Content-Encoding", "gzip")
+	} else if a.ContentEncoding == "deflate" {
+		w.Header().Set("Content-Encoding", "deflate")
+	} else {
+		w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
+	}
+}
 // tryServingFile attempts to serve a static file, and returns
 // whether or not the operation is successful.
 func (a *App) tryServingFile(name string, req *http.Request, w http.ResponseWriter) bool {
 	newPath := name[len(a.BasePath):]
 	staticFile := path.Join(a.AppConfig.StaticDir, newPath)
-	if fileExists(staticFile) {
-		http.ServeFile(w, req, staticFile)
+	finfo, err := os.Stat(staticFile)
+	if err != nil {
+		return false
+	}
+	if !finfo.IsDir() {
+		isStaticFileToCompress := false
+		if a.Server.Config.EnableGzip && a.Server.Config.StaticExtensionsToGzip != nil && len(a.Server.Config.StaticExtensionsToGzip) > 0 {
+			for _, statExtension := range a.Server.Config.StaticExtensionsToGzip {
+				if strings.HasSuffix(strings.ToLower(staticFile), strings.ToLower(statExtension)) {
+					isStaticFileToCompress = true
+					break
+				}
+			}
+		}
+		if isStaticFileToCompress {
+			a.ContentEncoding = GetAcceptEncodingZip(req)
+			memzipfile, err := OpenMemZipFile(staticFile, a.ContentEncoding)
+			if err != nil {
+				return false
+			}
+			a.InitHeadContent(w, finfo.Size())
+			http.ServeContent(w, req, staticFile, finfo.ModTime(), memzipfile)
+		} else {
+			http.ServeFile(w, req, staticFile)
+		}
 		return true
 	}
 	//fmt.Println(name)
