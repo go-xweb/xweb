@@ -1,7 +1,6 @@
 package xweb
 
 import (
-	//"net/http"
 	"reflect"
 	"strconv"
 )

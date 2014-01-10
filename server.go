@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 // ServerConfig is configuration for server objects.
@@ -18,6 +18,8 @@ type ServerConfig struct {
 	Port         int
 	RecoverPanic bool
 	Profiler     bool
+	EnableGzip   bool
+	StaticExtensionsToGzip []string
 }
 
 var ServerNumber uint = 0
@@ -27,7 +29,7 @@ type Server struct {
 	Config  *ServerConfig
 	Apps    map[string]*App
 	AppName map[string]string //[SWH|+]
-	Name    string            //[SWH|+]
+	Name	string //[SWH|+]
 	RootApp *App
 	Logger  *log.Logger
 	Env     map[string]interface{}
@@ -44,15 +46,15 @@ func NewServer(args ...string) *Server {
 		ServerNumber++
 	}
 	s := &Server{
-		Config:  Config,
-		Logger:  log.New(os.Stdout, "", log.Ldate|log.Ltime),
-		Env:     map[string]interface{}{},
-		Apps:    map[string]*App{},
-		AppName: map[string]string{},
-		Name:    name,
+		Config: Config,
+		Logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
+		Env:    map[string]interface{}{},
+		Apps:   map[string]*App{},
+		AppName:map[string]string{},
+		Name:	name,
 	}
-	Servers[s.Name] = s        //[SWH|+]
-	app := NewApp("/", "root") //[SWH|+] ,"root"
+	Servers[s.Name] = s //[SWH|+]
+	app := NewApp("/","root") //[SWH|+] ,"root"
 	s.AddApp(app)
 	return s
 }
@@ -62,11 +64,12 @@ func (s *Server) AddApp(a *App) {
 	s.Apps[a.BasePath] = a
 
 	//[SWH|+]
-	if a.Name != "" {
+	if a.Name!="" {
 		s.AppName[a.Name] = a.BasePath
 	}
 
 	a.Server = s
+	a.Logger = s.Logger
 	if a.BasePath == "/" {
 		s.RootApp = a
 	}
@@ -132,6 +135,7 @@ func (s *Server) Run(addr string) {
 
 	mux := http.NewServeMux()
 	if s.Config.Profiler {
+		mux.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
 		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 		mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))

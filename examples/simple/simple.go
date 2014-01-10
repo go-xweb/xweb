@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/lunny/xorm"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/lunny/xweb"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type MainAction struct {
@@ -82,7 +82,7 @@ func (c *MainAction) List() error {
 	users := make([]User, 0)
 	err := engine.Find(&users)
 	if err == nil {
-		err = c.Render("list.html", &T{
+		err = c.Render("list.html", &xweb.T{
 			"Users": &users,
 		})
 	}

@@ -123,12 +123,17 @@ func MainServer() *Server {
 }
 
 func RootApp() *App {
-    return MainServer().RootApp
+	return MainServer().RootApp
 }
 
 // Config is the configuration of the main server.
-var Config = &ServerConfig{
-	RecoverPanic: true,
-}
-var Servers map[string]*Server = make(map[string]*Server) //[SWH|+]
-var mainServer = NewServer("main")
+var (
+	Config *ServerConfig = &ServerConfig{
+		RecoverPanic: true,
+		EnableGzip: true,
+		//Profiler: true,
+		StaticExtensionsToGzip: []string{".css",".js"},
+	}
+	Servers map[string]*Server = make(map[string]*Server) //[SWH|+]
+	mainServer *Server = NewServer("main")
+)
