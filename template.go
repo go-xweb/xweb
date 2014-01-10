@@ -162,6 +162,7 @@ type TemplateMgr struct {
 	RootDir  string
 	Ignores  map[string]bool
 	IsReload bool
+	app      *App
 }
 
 func (self *TemplateMgr) Moniter(rootDir string) error {
@@ -214,12 +215,14 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 						tmpl := ev.Name[len(self.RootDir)+1:]
 						content, err := ioutil.ReadFile(ev.Name)
 						if err != nil {
+							self.app.Logger.Println("reloaded template", tmpl, "failed")
 							break
 						}
 
 						self.mutex.Lock()
 						self.Caches[tmpl] = content
 						self.mutex.Unlock()
+						self.app.Logger.Println("reloaded template", tmpl)
 					}
 				} else if ev.IsRename() {
 					if d.IsDir() {
@@ -274,10 +277,11 @@ func (self *TemplateMgr) CacheAll(rootDir string) error {
 	return err
 }
 
-func (self *TemplateMgr) Init(rootDir string, reload bool) error {
+func (self *TemplateMgr) Init(app *App, rootDir string, reload bool) error {
 	self.RootDir = rootDir
 	self.Caches = make(map[string][]byte)
 	self.mutex = &sync.Mutex{}
+	self.app = app
 	if dirExists(rootDir) {
 		self.CacheAll(rootDir)
 

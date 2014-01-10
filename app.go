@@ -96,10 +96,10 @@ func NewApp(args ...string) *App {
 
 func (a *App) initApp() {
 	if a.AppConfig.StaticFileVersion {
-		a.StaticVerMgr.Init(a.AppConfig.StaticDir)
+		a.StaticVerMgr.Init(a, a.AppConfig.StaticDir)
 	}
 	if a.AppConfig.CacheTemplates {
-		a.TemplateMgr.Init(a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
+		a.TemplateMgr.Init(a, a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
 	}
 	a.FuncMaps["StaticUrl"] = a.StaticUrl
 	a.FuncMaps["XsrfName"] = XsrfName
@@ -241,13 +241,23 @@ func (app *App) AddRouter(url string, c interface{}) {
 	}
 }
 
+const (
+	ForeBlack  = iota + 30 //30         40         黑色
+	ForeRed                //31         41         紅色
+	ForeGreen              //32         42         綠色
+	ForeYellow             //33         43         黃色
+	ForeBlue               //34         44         藍色
+	ForePurple             //35         45         紫紅色
+	ForeCyan               //36         46         青藍色
+	ForeWhite              //37         47         白色
+)
+
 // the main route handler in web.go
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	requestPath := req.URL.Path
 
 	//log the request
 	var logEntry bytes.Buffer
-	fmt.Fprintf(&logEntry, "\033[32;1m%s %s\033[0m", req.Method, requestPath)
 
 	//ignore errors from ParseForm because it's usually harmless.
 	ct := req.Header.Get("Content-Type")
@@ -257,8 +267,6 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		req.ParseForm()
 	}
 
-	a.Logger.Print(logEntry.String())
-
 	//set some default headers
 	w.Header().Set("Server", "xweb")
 	tm := time.Now().UTC()
@@ -266,7 +274,10 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	// static files, needed op
 	if req.Method == "GET" || req.Method == "HEAD" {
-		if a.tryServingFile(requestPath, req, w) {
+		success := a.tryServingFile(requestPath, req, w)
+		if success {
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+			a.Logger.Print(logEntry.String())
 			return
 		}
 	}
@@ -307,6 +318,9 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			if err != nil || res.Value == "" || res.Value != formVal {
 				w.WriteHeader(500)
 				w.Write([]byte("xrsf error."))
+
+				fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+				a.Logger.Print(logEntry.String())
 				return
 			}
 		}
@@ -352,6 +366,8 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			c.GetLogger().Println(err)
 			//there was an error or panic while calling the handler
 			c.Abort(500, "Server Error")
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+			c.App.Logger.Print(logEntry.String())
 			return
 		}
 
@@ -377,6 +393,8 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		} else if e, ok := sval.Interface().(error); ok && e != nil {
 			c.GetLogger().Println(e)
 			c.Abort(500, "Server Error")
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+			c.App.Logger.Print(logEntry.String())
 			return
 		}
 		c.SetHeader("Content-Length", strconv.Itoa(len(content)))
@@ -384,19 +402,29 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		if err != nil {
 			a.Logger.Println("Error during write: ", err)
 		}
+		fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+		c.App.Logger.Print(logEntry.String())
 		return
 	}
 
 	// try serving index.html or index.htm
 	if req.Method == "GET" || req.Method == "HEAD" {
 		if a.tryServingFile(path.Join(requestPath, "index.html"), req, w) {
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+			a.Logger.Print(logEntry.String())
 			return
 		} else if a.tryServingFile(path.Join(requestPath, "index.htm"), req, w) {
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+			a.Logger.Print(logEntry.String())
 			return
 		}
 	}
+
 	w.WriteHeader(404)
 	w.Write([]byte("Page not found"))
+
+	fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+	a.Logger.Print(logEntry.String())
 }
 
 func (a *App) StaticUrl(url string) string {
