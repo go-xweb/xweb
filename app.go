@@ -3,9 +3,11 @@ package xweb
 import (
 	"bytes"
 	"fmt"
-	"github.com/astaxie/beego/session"
+
 	"html/template"
+	"log"
 	"net/http"
+	"os"
 	"path"
 	"reflect"
 	"regexp"
@@ -13,7 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"os"
+
+	"github.com/astaxie/beego/session"
 )
 
 const (
@@ -21,21 +24,22 @@ const (
 )
 
 type App struct {
-	BasePath       string
-	Name           string //[SWH|+]
-	routes         []route
-	filters        []Filter
-	Server         *Server
-	AppConfig      *AppConfig
-	Config         map[string]interface{}
-	Actions        map[reflect.Type]string
-	FuncMaps       template.FuncMap
-	VarMaps        T
-	SessionManager *session.Manager //Session manager
-	RootTemplate   *template.Template
-	ErrorTemplate  *template.Template
-	StaticVerMgr   *StaticVerMgr
-	TemplateMgr    *TemplateMgr
+	BasePath        string
+	Name            string //[SWH|+]
+	routes          []route
+	filters         []Filter
+	Server          *Server
+	AppConfig       *AppConfig
+	Config          map[string]interface{}
+	Actions         map[reflect.Type]string
+	FuncMaps        template.FuncMap
+	Logger          *log.Logger
+	VarMaps         T
+	SessionManager  *session.Manager //Session manager
+	RootTemplate    *template.Template
+	ErrorTemplate   *template.Template
+	StaticVerMgr    *StaticVerMgr
+	TemplateMgr     *TemplateMgr
 	ContentEncoding string
 }
 
@@ -63,14 +67,14 @@ type route struct {
 func NewApp(args ...string) *App {
 	path := args[0]
 	name := ""
-	if len(args)==1 {
+	if len(args) == 1 {
 		name = strings.Replace(path, "/", "_", -1)
-	}else{
+	} else {
 		name = args[1]
 	}
 	return &App{
 		BasePath: path,
-		Name: name, //[SWH|+]
+		Name:     name, //[SWH|+]
 		AppConfig: &AppConfig{
 			StaticDir:         "static",
 			TemplateDir:       "templates",
@@ -94,10 +98,10 @@ func NewApp(args ...string) *App {
 
 func (a *App) initApp() {
 	if a.AppConfig.StaticFileVersion {
-		a.StaticVerMgr.Init(a.AppConfig.StaticDir)
+		a.StaticVerMgr.Init(a, a.AppConfig.StaticDir)
 	}
 	if a.AppConfig.CacheTemplates {
-		a.TemplateMgr.Init(a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
+		a.TemplateMgr.Init(a, a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
 	}
 	a.FuncMaps["StaticUrl"] = a.StaticUrl
 	a.FuncMaps["XsrfName"] = XsrfName
@@ -187,7 +191,7 @@ func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
 	cr, err := regexp.Compile(r)
 	if err != nil {
-		a.Server.Logger.Printf("Error in route regex %q\n", r)
+		a.Logger.Printf("Error in route regex %q\n", r)
 		return
 	}
 
@@ -239,13 +243,23 @@ func (app *App) AddRouter(url string, c interface{}) {
 	}
 }
 
+const (
+	ForeBlack  = iota + 30 //30         40         黑色
+	ForeRed                //31         41         紅色
+	ForeGreen              //32         42         綠色
+	ForeYellow             //33         43         黃色
+	ForeBlue               //34         44         藍色
+	ForePurple             //35         45         紫紅色
+	ForeCyan               //36         46         青藍色
+	ForeWhite              //37         47         白色
+)
+
 // the main route handler in web.go
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	requestPath := req.URL.Path
 
 	//log the request
 	var logEntry bytes.Buffer
-	fmt.Fprintf(&logEntry, "\033[32;1m%s %s\033[0m", req.Method, requestPath)
 
 	//ignore errors from ParseForm because it's usually harmless.
 	ct := req.Header.Get("Content-Type")
@@ -255,8 +269,6 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		req.ParseForm()
 	}
 
-	a.Server.Logger.Print(logEntry.String())
-
 	//set some default headers
 	w.Header().Set("Server", "xweb")
 	tm := time.Now().UTC()
@@ -264,7 +276,10 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	// static files, needed op
 	if req.Method == "GET" || req.Method == "HEAD" {
-		if a.tryServingFile(requestPath, req, w) {
+		success := a.tryServingFile(requestPath, req, w)
+		if success {
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+			a.Logger.Print(logEntry.String())
 			return
 		}
 	}
@@ -305,6 +320,9 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			if err != nil || res.Value == "" || res.Value != formVal {
 				w.WriteHeader(500)
 				w.Write([]byte("xrsf error."))
+
+				fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+				a.Logger.Print(logEntry.String())
 				return
 			}
 		}
@@ -339,7 +357,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		//[SWH|+]------------------------------------------Before-Hook
 		structName := reflect.ValueOf(route.ctype.String())
 		actionName := reflect.ValueOf(route.handler)
-		structAction := []reflect.Value{structName,actionName}
+		structAction := []reflect.Value{structName, actionName}
 		initM = vc.MethodByName("Before")
 		if initM.IsValid() {
 			initM.Call(structAction)
@@ -350,17 +368,18 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			c.GetLogger().Println(err)
 			//there was an error or panic while calling the handler
 			c.Abort(500, "Server Error")
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+			c.App.Logger.Print(logEntry.String())
 			return
 		}
 
 		//[SWH|+]------------------------------------------After-Hook
 		initM = vc.MethodByName("After")
 		if initM.IsValid() {
-			actionResult:=reflect.ValueOf(ret)
-			structAction=[]reflect.Value{structName,actionName,actionResult}
+			actionResult := reflect.ValueOf(ret)
+			structAction = []reflect.Value{structName, actionName, actionResult}
 			initM.Call(structAction)
 		}
-
 
 		if len(ret) == 0 {
 			return
@@ -376,28 +395,40 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		} else if e, ok := sval.Interface().(error); ok && e != nil {
 			c.GetLogger().Println(e)
 			c.Abort(500, "Server Error")
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+			c.App.Logger.Print(logEntry.String())
 			return
 		}
 
 		c.SetHeader("Content-Length", strconv.Itoa(len(content)))
 		_, err = c.ResponseWriter.Write(content)
 		if err != nil {
-			a.Server.Logger.Println("Error during write: ", err)
+			a.Logger.Println("Error during write: ", err)
 		}
 
+		fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+		c.App.Logger.Print(logEntry.String())
 		return
 	}
 
 	// try serving index.html or index.htm
 	if req.Method == "GET" || req.Method == "HEAD" {
 		if a.tryServingFile(path.Join(requestPath, "index.html"), req, w) {
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+			a.Logger.Print(logEntry.String())
 			return
 		} else if a.tryServingFile(path.Join(requestPath, "index.htm"), req, w) {
+			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
+			a.Logger.Print(logEntry.String())
 			return
 		}
 	}
+
 	w.WriteHeader(404)
 	w.Write([]byte("Page not found"))
+
+	fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
+	a.Logger.Print(logEntry.String())
 }
 
 func (a *App) StaticUrl(url string) string {
@@ -421,13 +452,13 @@ func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) 
 			} else {
 				e = err
 				resp = nil
-				a.Server.Logger.Println("Handler crashed with error", err)
+				a.Logger.Println("Handler crashed with error", err)
 				for i := 1; ; i += 1 {
 					_, file, line, ok := runtime.Caller(i)
 					if !ok {
 						break
 					}
-					a.Server.Logger.Println(file, line)
+					a.Logger.Println(file, line)
 				}
 			}
 		}
@@ -446,6 +477,7 @@ func (a *App) InitHeadContent(w http.ResponseWriter, contentLength int64) {
 		w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
 	}
 }
+
 // tryServingFile attempts to serve a static file, and returns
 // whether or not the operation is successful.
 func (a *App) tryServingFile(name string, req *http.Request, w http.ResponseWriter) bool {
@@ -478,110 +510,12 @@ func (a *App) tryServingFile(name string, req *http.Request, w http.ResponseWrit
 		}
 		return true
 	}
-	//fmt.Println(name)
 	return false
 }
 
 var (
 	sc *Action = &Action{}
 )
-
-/*func FormMap(prefix string, result interface{}, values *map[string][]string) error {
-	value := reflect.ValueOf(result)
-	value.
-
-	for k, t := range values {
-		names := strings.Split(k, ".")
-		var value reflect.Value = vc
-		for i, name := range names {
-			name = strings.Title(name)
-			if i == 0 {
-				if reflect.ValueOf(sc).Elem().FieldByName(name).IsValid() {
-					a.Server.Logger.Printf("Controller's property should not be changed by mapper.")
-					break
-				}
-			}
-			if value.Kind() != reflect.Struct {
-				a.Server.Logger.Printf("arg error, value kind is %v", value.Kind())
-				break
-			}
-
-			if i != len(names)-1 {
-				value = value.FieldByName(name)
-				if !value.IsValid() {
-					a.Server.Logger.Printf("(%v value is not valid %v)", name, value)
-					break
-				}
-			} else {
-				tv := value.FieldByName(name)
-				if !tv.IsValid() {
-					//a.Server.Logger.Printf("struct %v has no field named %v", value, name)
-					break
-				}
-				if !tv.CanSet() {
-					a.Server.Logger.Printf("can not set %v", k)
-					break
-				}
-				var l interface{}
-				switch k := tv.Kind(); k {
-				case reflect.String:
-					l = v
-					tv.Set(reflect.ValueOf(l))
-				case reflect.Bool:
-					l = (v != "false" && v != "0")
-					tv.Set(reflect.ValueOf(l))
-				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-					x, err := strconv.Atoi(v)
-					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
-						break
-					}
-					l = x
-					tv.Set(reflect.ValueOf(l))
-				case reflect.Int64:
-					x, err := strconv.ParseInt(v, 10, 64)
-					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
-						break
-					}
-					l = x
-					tv.Set(reflect.ValueOf(l))
-				case reflect.Float32, reflect.Float64:
-					x, err := strconv.ParseFloat(v, 64)
-					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as float64: " + err.Error())
-						break
-					}
-					l = x
-					tv.Set(reflect.ValueOf(l))
-				case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-					x, err := strconv.ParseUint(v, 10, 64)
-					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
-						break
-					}
-					l = x
-					tv.Set(reflect.ValueOf(l))
-				case reflect.Struct:
-					if tvf, ok := tv.Interface().(FromConversion); ok {
-						err := tvf.FromString(v)
-						if err != nil {
-							a.Server.Logger.Printf("struct %v invoke FromString faild", tvf)
-						}
-					} else {
-						a.Server.Logger.Printf("can not set an struct which is not implement Fromconversion interface")
-					}
-				case reflect.Ptr:
-					a.Server.Logger.Printf("can not set an ptr")
-				case reflect.Slice, reflect.Array:
-					a.Server.Logger.Printf("slice or array %v", t)
-					tv.Set(reflect.ValueOf(t))
-				default:
-					break
-				}
-			}
-		}
-}*/
 
 // StructMap function mapping params to controller's properties
 func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
@@ -591,33 +525,44 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 		var value reflect.Value = vc
 		for i, name := range names {
 			name = strings.Title(name)
-			if i == 0 {
-				if reflect.ValueOf(sc).Elem().FieldByName(name).IsValid() {
-					a.Server.Logger.Printf("Controller's property should not be changed by mapper.")
+			if i != len(names)-1 {
+				if value.Kind() != reflect.Struct {
+					a.Logger.Printf("arg error, value kind is %v\n", value.Kind())
 					break
 				}
-			}
-			if value.Kind() != reflect.Struct {
-				a.Server.Logger.Printf("arg error, value kind is %v", value.Kind())
-				break
-			}
 
-			if i != len(names)-1 {
 				value = value.FieldByName(name)
 				if !value.IsValid() {
-					a.Server.Logger.Printf("(%v value is not valid %v)", name, value)
+					a.Logger.Printf("(%v value is not valid %v)\n", name, value.Interface())
 					break
+				}
+				if !value.CanSet() {
+					a.Logger.Printf("can not set %v -> %v\n", name, value.Interface())
+					break
+				}
+
+				if value.Kind() == reflect.Ptr {
+					if value.IsNil() {
+						value.Set(reflect.New(value.Type().Elem()))
+					}
+					value = value.Elem()
 				}
 			} else {
 				tv := value.FieldByName(name)
 				if !tv.IsValid() {
-					//a.Server.Logger.Printf("struct %v has no field named %v", value, name)
+					a.Logger.Printf("struct %v has no field named %v\n", value, name)
 					break
 				}
 				if !tv.CanSet() {
-					a.Server.Logger.Printf("can not set %v", k)
+					a.Logger.Printf("can not set %v\n", k)
 					break
 				}
+
+				if tv.Kind() == reflect.Ptr {
+					tv.Set(reflect.New(tv.Type().Elem()))
+					tv = tv.Elem()
+				}
+
 				var l interface{}
 				switch k := tv.Kind(); k {
 				case reflect.String:
@@ -629,7 +574,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 					x, err := strconv.Atoi(v)
 					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
+						a.Logger.Printf("arg %v as int: %v\n", v, err)
 						break
 					}
 					l = x
@@ -637,7 +582,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Int64:
 					x, err := strconv.ParseInt(v, 10, 64)
 					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
+						a.Logger.Printf("arg %v as int64: %v\n", v, err)
 						break
 					}
 					l = x
@@ -645,7 +590,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Float32, reflect.Float64:
 					x, err := strconv.ParseFloat(v, 64)
 					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as float64: " + err.Error())
+						a.Logger.Printf("arg %v as float64: %v\n", v, err)
 						break
 					}
 					l = x
@@ -653,7 +598,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 					x, err := strconv.ParseUint(v, 10, 64)
 					if err != nil {
-						a.Server.Logger.Printf("arg " + v + " as int: " + err.Error())
+						a.Logger.Printf("arg %v as uint: %v\n", v, err)
 						break
 					}
 					l = x
@@ -662,7 +607,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 					if tvf, ok := tv.Interface().(FromConversion); ok {
 						err := tvf.FromString(v)
 						if err != nil {
-							a.Server.Logger.Printf("struct %v invoke FromString faild", tvf)
+							a.Logger.Printf("struct %v invoke FromString faild\n", tvf)
 						}
 					} else if tv.Type().String() == "time.Time" {
 						x, err := time.Parse("2006-01-02 15:04:05.000 -0700", v)
@@ -671,7 +616,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 							if err != nil {
 								x, err = time.Parse("2006-01-02", v)
 								if err != nil {
-									a.Server.Logger.Printf("unsupported time format: " + v)
+									a.Logger.Printf("unsupported time format: %v\n", v)
 									break
 								}
 							}
@@ -679,13 +624,61 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 						l = x
 						tv.Set(reflect.ValueOf(l))
 					} else {
-						a.Server.Logger.Printf("can not set an struct which is not implement Fromconversion interface")
+						a.Logger.Printf("can not set an struct which is not implement Fromconversion interface")
 					}
 				case reflect.Ptr:
-					a.Server.Logger.Printf("can not set an ptr")
+					a.Logger.Printf("can not set an ptr of ptr\n")
 				case reflect.Slice, reflect.Array:
-					a.Server.Logger.Printf("slice or array %v", t)
-					tv.Set(reflect.ValueOf(t))
+					// TODO: currently only support []string, need to
+					tt := tv.Type().Elem()
+					tk := tt.Kind()
+					if tk == reflect.String {
+						tv.Set(reflect.ValueOf(t))
+						break
+					}
+
+					if tv.IsNil() {
+						tv.Set(reflect.MakeSlice(tv.Type(), len(t), len(t)))
+					}
+
+					for i, s := range t {
+						var err error
+						switch tk {
+						case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int8, reflect.Int64:
+							var v int64
+							v, err = strconv.ParseInt(s, 10, tt.Bits())
+							if err == nil {
+								tv.Index(i).SetInt(v)
+							}
+						case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+							var v uint64
+							v, err = strconv.ParseUint(s, 10, tt.Bits())
+							if err == nil {
+								tv.Index(i).SetUint(v)
+							}
+						case reflect.Float32, reflect.Float64:
+							var v float64
+							v, err = strconv.ParseFloat(s, tt.Bits())
+							if err == nil {
+								tv.Index(i).SetFloat(v)
+							}
+						case reflect.Bool:
+							var v bool
+							v, err = strconv.ParseBool(s)
+							if err == nil {
+								tv.Index(i).SetBool(v)
+							}
+						case reflect.Complex64, reflect.Complex128:
+							// TODO:
+							err = fmt.Errorf("unsupported slice element type %v", tk.String())
+						default:
+							err = fmt.Errorf("unsupported slice element type %v", tk.String())
+						}
+						if err != nil {
+							fmt.Println("slice error:", name, err)
+							break
+						}
+					}
 				default:
 					break
 				}

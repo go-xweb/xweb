@@ -688,7 +688,7 @@ func (c *Action) GetFile(key string) (multipart.File, *multipart.FileHeader, err
 }
 
 func (c *Action) GetLogger() *log.Logger {
-	return c.App.Server.Logger
+	return c.App.Logger
 }
 
 func (c *Action) SaveToFile(fromfile, tofile string) error {

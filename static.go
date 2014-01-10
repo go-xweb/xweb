@@ -17,6 +17,7 @@ type StaticVerMgr struct {
 	mutex   *sync.Mutex
 	Path    string
 	Ignores map[string]bool
+	app     *App
 }
 
 func (self *StaticVerMgr) Moniter(staticPath string) error {
@@ -105,11 +106,12 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 	return nil
 }
 
-func (self *StaticVerMgr) Init(staticPath string) error {
+func (self *StaticVerMgr) Init(app *App, staticPath string) error {
 	self.Path = staticPath
 	self.Caches = make(map[string]string)
 	self.mutex = &sync.Mutex{}
 	self.Ignores = map[string]bool{".DS_Store": true}
+	self.app = app
 
 	if dirExists(staticPath) {
 		self.CacheAll(staticPath)
