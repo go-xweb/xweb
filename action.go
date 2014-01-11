@@ -3,6 +3,8 @@ package xweb
 import (
 	"bytes"
 	"code.google.com/p/go-uuid/uuid"
+	"compress/flate"
+	"compress/gzip"
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
@@ -26,8 +28,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"compress/flate"
-	"compress/gzip"
 )
 
 // An Action object or it's substruct is created for every incoming HTTP request.
@@ -43,7 +43,7 @@ type Action struct {
 	T            T
 	f            T
 	RootTemplate *template.Template
-	RequestBody []byte
+	RequestBody  []byte
 }
 
 type Mapper struct {
@@ -214,6 +214,7 @@ func (c *Action) Body() []byte {
 	c.RequestBody = requestbody
 	return requestbody
 }
+
 func (c *Action) DisableHttpCache() {
 	c.SetHeader("Expires", "Mon, 26 Jul 1997 05:00:00 GMT")
 	c.SetHeader("Last-Modified", webTime(time.Now().UTC()))
@@ -270,7 +271,7 @@ func (c *Action) SetBody(content []byte) error {
 	} else {
 		c.SetHeader("Content-Length", strconv.Itoa(len(content)))
 	}
-	_,err := output_writer.Write(content)
+	_, err := output_writer.Write(content)
 	switch output_writer.(type) {
 	case *gzip.Writer:
 		output_writer.(*gzip.Writer).Close()
@@ -329,9 +330,7 @@ func (c *Action) Write(content string, values ...interface{}) error {
 // Once it has been called, any return value from the handler will
 // not be written to the response.
 func (c *Action) Abort(status int, body string) error {
-	c.ResponseWriter.WriteHeader(status)
-	_, err := c.ResponseWriter.Write([]byte(body))
-	return err
+	return Error(c.ResponseWriter, status, body)
 }
 
 // Redirect is a helper method for 3xx redirects.
@@ -609,6 +608,7 @@ func (c *Action) SetHeader(key string, value string) {
 	c.ResponseWriter.Header().Set(key, value)
 }
 
+/*
 // @deprected, this function will be deleted in furtuer, please use AddTmplVar instead
 func (c *Action) AddFunc(name string, fun interface{}) {
 	c.f[name] = fun
@@ -617,7 +617,7 @@ func (c *Action) AddFunc(name string, fun interface{}) {
 // @deprected, this function will be deleted in furtuer, please use AddTmplVar instead
 func (c *Action) AddVar(name string, tvar interface{}) {
 	c.T[name] = tvar
-}
+}*/
 
 func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
 	if reflect.ValueOf(varOrFunc).Type().Kind() == reflect.Func {

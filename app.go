@@ -2,8 +2,8 @@ package xweb
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-
 	"html/template"
 	"log"
 	"net/http"
@@ -43,7 +43,13 @@ type App struct {
 	ContentEncoding string
 }
 
+const (
+	Debug = iota + 1
+	Product
+)
+
 type AppConfig struct {
+	Mode              int
 	StaticDir         string
 	TemplateDir       string
 	SessionOn         bool
@@ -76,6 +82,7 @@ func NewApp(args ...string) *App {
 		BasePath: path,
 		Name:     name, //[SWH|+]
 		AppConfig: &AppConfig{
+			Mode:              Product,
 			StaticDir:         "static",
 			TemplateDir:       "templates",
 			SessionOn:         true,
@@ -318,8 +325,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 				formVal = formVals[0]
 			}
 			if err != nil || res.Value == "" || res.Value != formVal {
-				w.WriteHeader(500)
-				w.Write([]byte("xrsf error."))
+				Error(w, 500, "xrsf error.")
 
 				fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
 				a.Logger.Print(logEntry.String())
@@ -367,7 +373,11 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		if err != nil {
 			c.GetLogger().Println(err)
 			//there was an error or panic while calling the handler
-			c.Abort(500, "Server Error")
+			if c.App.AppConfig.Mode == Debug {
+				c.Abort(500, err.Error())
+			} else if c.App.AppConfig.Mode == Product {
+				c.Abort(500, "Server Error")
+			}
 			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
 			c.App.Logger.Print(logEntry.String())
 			return
@@ -424,8 +434,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		}
 	}
 
-	w.WriteHeader(404)
-	w.Write([]byte("Page not found"))
+	Error(w, 404, "Page not found")
 
 	fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
 	a.Logger.Print(logEntry.String())
@@ -443,28 +452,31 @@ func (a *App) StaticUrl(url string) string {
 }
 
 // safelyCall invokes `function` in recover block
-func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) (resp []reflect.Value, e interface{}) {
+func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) (resp []reflect.Value, err error) {
 	defer func() {
-		if err := recover(); err != nil {
+		if e := recover(); e != nil {
 			if !a.Server.Config.RecoverPanic {
 				// go back to panic
-				panic(err)
+				panic(e)
 			} else {
-				e = err
 				resp = nil
-				a.Logger.Println("Handler crashed with error", err)
+				var content string
+				content = fmt.Sprintln("Handler crashed with error", e)
 				for i := 1; ; i += 1 {
 					_, file, line, ok := runtime.Caller(i)
 					if !ok {
 						break
 					}
-					a.Logger.Println(file, line)
+					content += fmt.Sprintln(file, line)
 				}
+				a.Logger.Print(content)
+				err = errors.New(content)
+				return
 			}
 		}
 	}()
 	function := vc.MethodByName(method)
-	return function.Call(args), nil
+	return function.Call(args), err
 }
 
 // Init content-length header.
