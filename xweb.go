@@ -71,7 +71,7 @@ const (
 	<div style="padding:10px;min-height:500px;">
 	%s</div>
 	<div style="padding:10px;background-color:#81DAF5;border-top: 1px solid #0404B4" width="100%%">
-	xweb %s
+	xweb v%s <input type="button" style="" value="返回" onclick="history.go(-1)"/>
 	</div></body>
 	</html>
 	`
