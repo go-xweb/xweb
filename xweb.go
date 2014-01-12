@@ -14,6 +14,10 @@ import (
 	"fmt"
 )
 
+const (
+	version = "0.1.2"
+)
+
 // small optimization: cache the context type instead of repeteadly calling reflect.Typeof
 //var contextType reflect.Type
 
@@ -48,6 +52,36 @@ func Download(w http.ResponseWriter, fpath string) error {
 	fName := fpath[len(path.Dir(fpath))+1:]
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fName))
 	_, err = w.Write(data)
+	return err
+}
+
+const (
+	errorTmpl = `<html><title>%d - %s</title>
+	<style>
+	body {
+		border: 0;
+		margin: 0;
+		padding: 0;
+	}
+	</style>
+	<body>
+	<div style="padding:10px;background-color:#81DAF5;border-bottom: 1px solid #0404B4" width="100%%">
+	<h1>%d - %s</h1>
+	</div>
+	<div style="padding:10px;min-height:500px;">
+	%s</div>
+	<div style="padding:10px;background-color:#81DAF5;border-top: 1px solid #0404B4" width="100%%">
+	xweb v%s <input type="button" style="" value="返回" onclick="history.go(-1)"/>
+	</div></body>
+	</html>
+	`
+)
+
+func Error(w http.ResponseWriter, status int, content string) error {
+	w.WriteHeader(status)
+	res := fmt.Sprintf(errorTmpl, status, statusText[status],
+		status, statusText[status], content, version)
+	_, err := w.Write([]byte(res))
 	return err
 }
 
@@ -130,10 +164,10 @@ func RootApp() *App {
 var (
 	Config *ServerConfig = &ServerConfig{
 		RecoverPanic: true,
-		EnableGzip: true,
+		EnableGzip:   true,
 		//Profiler: true,
-		StaticExtensionsToGzip: []string{".css",".js"},
+		StaticExtensionsToGzip: []string{".css", ".js"},
 	}
-	Servers map[string]*Server = make(map[string]*Server) //[SWH|+]
-	mainServer *Server = NewServer("main")
+	Servers    map[string]*Server = make(map[string]*Server) //[SWH|+]
+	mainServer *Server            = NewServer("main")
 )
