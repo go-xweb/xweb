@@ -141,6 +141,10 @@ func (s *Server) Run(addr string) {
 		mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	}
+
+	if c,err:=XHook.Call("MuxHandle", mux); err==nil{
+		mux = XHook.Value(c[0]).(*http.ServeMux)
+	}
 	mux.Handle("/", s)
 
 	s.Logger.Printf("xweb serving %s\n", addr)
