@@ -1,5 +1,5 @@
 /************************
-[钩子引擎 (version 0.2)]
+[钩子引擎 (version 0.3)]
 @author:S.W.H
 @E-mail:swh@admpub.com
 @update:2014-01-18
@@ -29,6 +29,9 @@ func (f *HookEngine) Bind(name string, fns ...interface{}) (err error) {
 			err = errors.New(name + " is not callable.")
 		}
 	}()
+	if _, ok := f.Hooks[name]; !ok {
+		f.Hooks[name] = make(Hook, 0)
+	}
 	if _, ok := f.Index[name]; !ok {
 		f.Index[name] = 0
 	}
@@ -40,7 +43,6 @@ func (f *HookEngine) Bind(name string, fns ...interface{}) (err error) {
 			f.Hooks[name] = append(f.Hooks[name], v)
 			f.Index[name]++
 		}
-		//fmt.Printf("%v\n", f.Hooks[name])
 	} else {
 		for _, fn := range fns {
 			v := reflect.ValueOf(fn)
@@ -61,9 +63,7 @@ func (f *HookEngine) Call(name string, params ...interface{}) (result []reflect.
 	for k, param := range params {
 		in[k] = reflect.ValueOf(param)
 	}
-	//fmt.Printf("Length: %d\n", len(f.Hooks[name]))
 	for _, v := range f.Hooks[name] {
-		//fmt.Printf("v: %v\n", v)
 		if v.IsValid() == false {
 			continue
 		}
@@ -78,17 +78,20 @@ func (f *HookEngine) Call(name string, params ...interface{}) (result []reflect.
 		}
 	}
 	if len(result) == 0 {
-		err = errors.New(name + " is nothing.")
+		err = errors.New(name + " have nothing to do.")
 	}
 	return
 }
 
-func (f *HookEngine) Value(c reflect.Value) interface{} {
-	return c.Interface().([]reflect.Value)
+func (f *HookEngine) Value(c []reflect.Value, index int) (r interface{}) {
+	if len(c) >= index && c[index].CanInterface() {
+		r = c[index].Interface()
+	}
+	return
 }
 
-func (f *HookEngine) String(c interface{}) string {
-	return fmt.Sprintf("%s", f.Value(c.(reflect.Value)))
+func (f *HookEngine) String(c reflect.Value) string {
+	return fmt.Sprintf("%s", c)
 }
 
 func NewHookEngine(size int) *HookEngine {

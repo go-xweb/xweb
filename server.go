@@ -141,9 +141,12 @@ func (s *Server) Run(addr string) {
 		mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	}
-
-	if c,err:=XHook.Call("MuxHandle", mux); err==nil{
-		mux = XHook.Value(c[0]).(*http.ServeMux)
+	//[SWH|+]call hook
+	if c, err := XHook.Call("MuxHandle", mux); err == nil {
+		ret := XHook.Value(c,0)
+		if ret != nil {
+			mux = ret.(*http.ServeMux)
+		}
 	}
 	mux.Handle("/", s)
 
