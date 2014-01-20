@@ -2,7 +2,6 @@ package xweb
 
 import (
 	"bytes"
-	"code.google.com/p/go-uuid/uuid"
 	"compress/flate"
 	"compress/gzip"
 	"crypto/hmac"
@@ -14,7 +13,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/astaxie/beego/session"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -28,6 +26,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"code.google.com/p/go-uuid/uuid"
+	"github.com/astaxie/beego/session"
 )
 
 // An Action object or it's substruct is created for every incoming HTTP request.
@@ -502,12 +503,12 @@ func (c *Action) Include(tmplName string) interface{} {
 
 	content, err := c.getTemplate(tmplName)
 	if err != nil {
-		fmt.Printf("RenderTemplate %v read err\n", tmplName)
+		c.App.Logger.Printf("RenderTemplate %v read err\n", tmplName)
 		return ""
 	}
 	tmpl, err := t.Parse(string(content))
 	if err != nil {
-		fmt.Printf("Parse %v err: %v\n", tmplName, err)
+		c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
 		return ""
 	}
 	newbytes := bytes.NewBufferString("")
@@ -515,13 +516,13 @@ func (c *Action) Include(tmplName string) interface{} {
 	if err == nil {
 		tplcontent, err := ioutil.ReadAll(newbytes)
 		if err != nil {
-			fmt.Printf("Parse %v err: %v\n", tmplName, err)
+			c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
 			return ""
 		} else {
 			return template.HTML(string(tplcontent))
 		}
 	} else {
-		fmt.Printf("Parse %v err: %v\n", tmplName, err)
+		c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
 		return ""
 	}
 }
