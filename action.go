@@ -544,7 +544,10 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 	}
 
 	c.RootTemplate.Funcs(c.getFuncs())
-
+	//[SWH|+]call hook
+	if c, err := XHook.Call("BeforeRender", content); err == nil {
+		content = XHook.String(c[0])
+	}
 	tmpl, err := c.RootTemplate.Parse(string(content))
 	if err == nil {
 		newbytes := bytes.NewBufferString("")
