@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -470,18 +471,19 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 	}
 
 	tagStr := tag.Tag.Get("xweb")
+	var rPath string
 	if tagStr != "" {
 		p := tagStr
 		ts := strings.Split(tagStr, " ")
 		if len(ts) >= 2 {
 			p = ts[1]
 		}
-		rPath := root + p + m[len(uris[0]):]
-		rPath = strings.Replace(rPath, "//", "/", -1)
-		return c.Redirect(rPath)
+		rPath = path.Join(root, p, m[len(uris[0]):])
 	} else {
-		return c.Redirect(root + m)
+		rPath = path.Join(root, m)
 	}
+	rPath = strings.Replace(rPath, "//", "/", -1)
+	return c.Redirect(rPath)
 }
 
 func (c *Action) Flush() {
