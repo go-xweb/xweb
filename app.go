@@ -60,6 +60,7 @@ type AppConfig struct {
 	ReloadTemplates   bool
 	CheckXrsf         bool
 	SessionTimeout    int64
+	FormMapToStruct   bool //[SWH|+]
 }
 
 type route struct {
@@ -92,6 +93,7 @@ func NewApp(args ...string) *App {
 			CacheTemplates:    true,
 			ReloadTemplates:   true,
 			CheckXrsf:         true,
+			FormMapToStruct:   true,
 		},
 		Config:       map[string]interface{}{},
 		Actions:      map[reflect.Type]string{},
@@ -325,7 +327,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 				formVal = formVals[0]
 			}
 			if err != nil || res.Value == "" || res.Value != formVal {
-				Error(w, 500, "xrsf error.")
+				Error(w, 500, "xrsf token error.")
 
 				fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
 				a.Logger.Print(logEntry.String())
@@ -352,7 +354,9 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			fieldC.Set(reflect.ValueOf(vc))
 		}
 
-		a.StructMap(vc.Elem(), req)
+		if c.App.AppConfig.FormMapToStruct {
+			a.StructMap(vc.Elem(), req)
+		}
 
 		initM := vc.MethodByName("Init")
 		if initM.IsValid() {
