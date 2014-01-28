@@ -508,7 +508,13 @@ func (c *Action) Include(tmplName string) interface{} {
 		c.App.Logger.Printf("RenderTemplate %v read err\n", tmplName)
 		return ""
 	}
-	tmpl, err := t.Parse(string(content))
+
+	constr := string(content)
+	//[SWH|+]call hook
+	if c, err := XHook.Call("BeforeRender", constr); err == nil {
+		constr = XHook.String(c[0])
+	}
+	tmpl, err := t.Parse(constr)
 	if err != nil {
 		c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
 		return ""
