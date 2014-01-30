@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -198,6 +199,7 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 						}
 
 						self.mutex.Lock()
+						tmpl = strings.Replace(tmpl, "\\", "/", -1) //[SWH|+]fix windows env
 						self.Caches[tmpl] = content
 						self.mutex.Unlock()
 					}
@@ -206,7 +208,9 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 						watcher.RemoveWatch(ev.Name)
 					} else {
 						self.mutex.Lock()
-						delete(self.Caches, ev.Name[len(self.RootDir)+1:])
+						tmpl := ev.Name[len(self.RootDir)+1:]
+						tmpl = strings.Replace(tmpl, "\\", "/", -1) //[SWH|+]fix windows env
+						delete(self.Caches, tmpl)
 						self.mutex.Unlock()
 					}
 				} else if ev.IsModify() {
@@ -220,6 +224,7 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 						}
 
 						self.mutex.Lock()
+						tmpl = strings.Replace(tmpl, "\\", "/", -1) //[SWH|+]fix windows env
 						self.Caches[tmpl] = content
 						self.mutex.Unlock()
 						self.app.Logger.Println("reloaded template", tmpl)
@@ -229,7 +234,9 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 						watcher.RemoveWatch(ev.Name)
 					} else {
 						self.mutex.Lock()
-						delete(self.Caches, ev.Name[len(self.RootDir)+1:])
+						tmpl := ev.Name[len(self.RootDir)+1:]
+						tmpl = strings.Replace(tmpl, "\\", "/", -1) //[SWH|+]fix windows env
+						delete(self.Caches, tmpl)
 						self.mutex.Unlock()
 					}
 				}
@@ -265,6 +272,7 @@ func (self *TemplateMgr) CacheAll(rootDir string) error {
 			return nil
 		}
 		tmpl := f[len(rootDir)+1:]
+		tmpl = strings.Replace(tmpl, "\\", "/", -1) //[SWH|+]fix windows env
 		if _, ok := self.Ignores[filepath.Base(tmpl)]; !ok {
 			content, err := ioutil.ReadFile(path.Join(self.RootDir, tmpl))
 			if err != nil {
