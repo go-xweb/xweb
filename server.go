@@ -143,8 +143,7 @@ func (s *Server) Run(addr string) {
 	}
 	//[SWH|+]call hook
 	if c, err := XHook.Call("MuxHandle", mux); err == nil {
-		ret := XHook.Value(c,0)
-		if ret != nil {
+		if ret := XHook.Value(c,0); ret != nil {
 			mux = ret.(*http.ServeMux)
 		}
 	}

@@ -564,6 +564,12 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 		if err == nil {
 			tplcontent, err := ioutil.ReadAll(newbytes)
 			if err == nil {
+				//[SWH|+]call hook
+				if r, err := XHook.Call("AfterRender", tplcontent, c); err == nil {
+					if ret := XHook.Value(r,0); ret != nil {
+						tplcontent = ret.([]byte)
+					}
+				}
 				err = c.SetBody(tplcontent) //[SWH|+]
 				//_, err = c.ResponseWriter.Write(tplcontent)
 			}
