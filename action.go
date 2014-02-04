@@ -511,8 +511,8 @@ func (c *Action) Include(tmplName string) interface{} {
 
 	constr := string(content)
 	//[SWH|+]call hook
-	if c, err := XHook.Call("BeforeRender", constr); err == nil {
-		constr = XHook.String(c[0])
+	if r, err := XHook.Call("BeforeRender", constr, c); err == nil {
+		constr = XHook.String(r[0])
 	}
 	tmpl, err := t.Parse(constr)
 	if err != nil {
@@ -554,10 +554,10 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 
 	c.RootTemplate.Funcs(c.getFuncs())
 	//[SWH|+]call hook
-	if c, err := XHook.Call("BeforeRender", content); err == nil {
-		content = XHook.String(c[0])
+	if r, err := XHook.Call("BeforeRender", content, c); err == nil {
+		content = XHook.String(r[0])
 	}
-	tmpl, err := c.RootTemplate.Parse(string(content))
+	tmpl, err := c.RootTemplate.Parse(content)
 	if err == nil {
 		newbytes := bytes.NewBufferString("")
 		err = tmpl.Execute(newbytes, c.C.Elem().Interface())
