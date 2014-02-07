@@ -14,11 +14,11 @@ import (
 
 // ServerConfig is configuration for server objects.
 type ServerConfig struct {
-	Addr         string
-	Port         int
-	RecoverPanic bool
-	Profiler     bool
-	EnableGzip   bool
+	Addr                   string
+	Port                   int
+	RecoverPanic           bool
+	Profiler               bool
+	EnableGzip             bool
 	StaticExtensionsToGzip []string
 }
 
@@ -29,7 +29,7 @@ type Server struct {
 	Config  *ServerConfig
 	Apps    map[string]*App
 	AppName map[string]string //[SWH|+]
-	Name	string //[SWH|+]
+	Name    string            //[SWH|+]
 	RootApp *App
 	Logger  *log.Logger
 	Env     map[string]interface{}
@@ -46,15 +46,15 @@ func NewServer(args ...string) *Server {
 		ServerNumber++
 	}
 	s := &Server{
-		Config: Config,
-		Logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
-		Env:    map[string]interface{}{},
-		Apps:   map[string]*App{},
-		AppName:map[string]string{},
-		Name:	name,
+		Config:  Config,
+		Logger:  log.New(os.Stdout, "", log.Ldate|log.Ltime),
+		Env:     map[string]interface{}{},
+		Apps:    map[string]*App{},
+		AppName: map[string]string{},
+		Name:    name,
 	}
-	Servers[s.Name] = s //[SWH|+]
-	app := NewApp("/","root") //[SWH|+] ,"root"
+	Servers[s.Name] = s        //[SWH|+]
+	app := NewApp("/", "root") //[SWH|+] ,"root"
 	s.AddApp(app)
 	return s
 }
@@ -64,7 +64,7 @@ func (s *Server) AddApp(a *App) {
 	s.Apps[a.BasePath] = a
 
 	//[SWH|+]
-	if a.Name!="" {
+	if a.Name != "" {
 		s.AppName[a.Name] = a.BasePath
 	}
 
@@ -143,7 +143,7 @@ func (s *Server) Run(addr string) {
 	}
 	//[SWH|+]call hook
 	if c, err := XHook.Call("MuxHandle", mux); err == nil {
-		if ret := XHook.Value(c,0); ret != nil {
+		if ret := XHook.Value(c, 0); ret != nil {
 			mux = ret.(*http.ServeMux)
 		}
 	}

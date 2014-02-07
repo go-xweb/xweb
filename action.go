@@ -248,7 +248,7 @@ func (c *Action) HttpCache(content []byte) bool {
 // if EnableGzip, compress content string.
 // it sends out response body directly.
 func (c *Action) SetBody(content []byte) error {
-	if c.HttpCache(content) {
+	if c.App.AppConfig.EnableHttpCache && c.HttpCache(content) {
 		return nil
 	}
 	output_writer := c.ResponseWriter.(io.Writer)
@@ -566,7 +566,7 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 			if err == nil {
 				//[SWH|+]call hook
 				if r, err := XHook.Call("AfterRender", tplcontent, c); err == nil {
-					if ret := XHook.Value(r,0); ret != nil {
+					if ret := XHook.Value(r, 0); ret != nil {
 						tplcontent = ret.([]byte)
 					}
 				}
