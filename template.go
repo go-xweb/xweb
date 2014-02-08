@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -163,6 +164,7 @@ type TemplateMgr struct {
 	Ignores  map[string]bool
 	IsReload bool
 	app      *App
+	Debug    bool
 }
 
 func (self *TemplateMgr) Moniter(rootDir string) error {
@@ -197,17 +199,14 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 							break
 						}
 
-						self.mutex.Lock()
-						self.Caches[tmpl] = content
-						self.mutex.Unlock()
+						self.CacheTemplate(tmpl, content)
 					}
 				} else if ev.IsDelete() {
 					if d.IsDir() {
 						watcher.RemoveWatch(ev.Name)
 					} else {
-						self.mutex.Lock()
-						delete(self.Caches, ev.Name[len(self.RootDir)+1:])
-						self.mutex.Unlock()
+						tmpl := ev.Name[len(self.RootDir)+1:]
+						self.CacheDelete(tmpl)
 					}
 				} else if ev.IsModify() {
 					if d.IsDir() {
@@ -219,18 +218,15 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 							break
 						}
 
-						self.mutex.Lock()
-						self.Caches[tmpl] = content
-						self.mutex.Unlock()
+						self.CacheTemplate(tmpl, content)
 						self.app.Logger.Println("reloaded template", tmpl)
 					}
 				} else if ev.IsRename() {
 					if d.IsDir() {
 						watcher.RemoveWatch(ev.Name)
 					} else {
-						self.mutex.Lock()
-						delete(self.Caches, ev.Name[len(self.RootDir)+1:])
-						self.mutex.Unlock()
+						tmpl := ev.Name[len(self.RootDir)+1:]
+						self.CacheDelete(tmpl)
 					}
 				}
 			case err := <-watcher.Error:
@@ -265,6 +261,7 @@ func (self *TemplateMgr) CacheAll(rootDir string) error {
 			return nil
 		}
 		tmpl := f[len(rootDir)+1:]
+		tmpl = strings.Replace(tmpl, "\\", "/", -1) //[SWH|+]fix windows env
 		if _, ok := self.Ignores[filepath.Base(tmpl)]; !ok {
 			content, err := ioutil.ReadFile(path.Join(self.RootDir, tmpl))
 			if err != nil {
@@ -297,12 +294,40 @@ func (self *TemplateMgr) GetTemplate(tmpl string) ([]byte, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 	if content, ok := self.Caches[tmpl]; ok {
+		if self.Debug {
+			self.app.Logger.Println("Read from cache:", tmpl)
+		}
 		return content, nil
 	}
 
 	content, err := ioutil.ReadFile(path.Join(self.RootDir, tmpl))
 	if err == nil {
+		if self.Debug {
+			self.app.Logger.Println("Read from the file and cache:", tmpl)
+		}
 		self.Caches[tmpl] = content
 	}
 	return content, err
+}
+
+func (self *TemplateMgr) CacheTemplate(tmpl string, content []byte) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+	tmpl = strings.Replace(tmpl, "\\", "/", -1)
+	if self.Debug {
+		self.app.Logger.Println("Update template cache:", tmpl)
+	}
+	self.Caches[tmpl] = content
+	return
+}
+
+func (self *TemplateMgr) CacheDelete(tmpl string) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+	tmpl = strings.Replace(tmpl, "\\", "/", -1)
+	if self.Debug {
+		self.app.Logger.Println("Delete template cache:", tmpl)
+	}
+	delete(self.Caches, tmpl)
+	return
 }

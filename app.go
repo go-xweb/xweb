@@ -61,6 +61,7 @@ type AppConfig struct {
 	CheckXrsf         bool
 	SessionTimeout    int64
 	FormMapToStruct   bool //[SWH|+]
+	EnableHttpCache   bool //[SWH|+]
 }
 
 type route struct {

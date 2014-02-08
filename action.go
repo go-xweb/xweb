@@ -248,7 +248,7 @@ func (c *Action) HttpCache(content []byte) bool {
 // if EnableGzip, compress content string.
 // it sends out response body directly.
 func (c *Action) SetBody(content []byte) error {
-	if c.HttpCache(content) {
+	if c.App.AppConfig.EnableHttpCache && c.HttpCache(content) {
 		return nil
 	}
 	output_writer := c.ResponseWriter.(io.Writer)
@@ -508,7 +508,13 @@ func (c *Action) Include(tmplName string) interface{} {
 		c.App.Logger.Printf("RenderTemplate %v read err\n", tmplName)
 		return ""
 	}
-	tmpl, err := t.Parse(string(content))
+
+	constr := string(content)
+	//[SWH|+]call hook
+	if r, err := XHook.Call("BeforeRender", constr, c); err == nil {
+		constr = XHook.String(r[0])
+	}
+	tmpl, err := t.Parse(constr)
 	if err != nil {
 		c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
 		return ""
@@ -548,16 +554,22 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 
 	c.RootTemplate.Funcs(c.getFuncs())
 	//[SWH|+]call hook
-	if c, err := XHook.Call("BeforeRender", content); err == nil {
-		content = XHook.String(c[0])
+	if r, err := XHook.Call("BeforeRender", content, c); err == nil {
+		content = XHook.String(r[0])
 	}
-	tmpl, err := c.RootTemplate.Parse(string(content))
+	tmpl, err := c.RootTemplate.Parse(content)
 	if err == nil {
 		newbytes := bytes.NewBufferString("")
 		err = tmpl.Execute(newbytes, c.C.Elem().Interface())
 		if err == nil {
 			tplcontent, err := ioutil.ReadAll(newbytes)
 			if err == nil {
+				//[SWH|+]call hook
+				if r, err := XHook.Call("AfterRender", tplcontent, c); err == nil {
+					if ret := XHook.Value(r, 0); ret != nil {
+						tplcontent = ret.([]byte)
+					}
+				}
 				err = c.SetBody(tplcontent) //[SWH|+]
 				//_, err = c.ResponseWriter.Write(tplcontent)
 			}
