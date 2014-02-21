@@ -371,7 +371,9 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		structAction := []reflect.Value{structName, actionName}
 		initM = vc.MethodByName("Before")
 		if initM.IsValid() {
-			initM.Call(structAction)
+			if ok := initM.Call(structAction); !ok[0].Bool() {
+				return
+			}
 		}
 
 		ret, err := a.safelyCall(vc, route.handler, args)
@@ -393,7 +395,9 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		if initM.IsValid() {
 			actionResult := reflect.ValueOf(ret)
 			structAction = []reflect.Value{structName, actionName, actionResult}
-			initM.Call(structAction)
+			if ok := initM.Call(structAction); !ok[0].Bool() {
+				return
+			}
 		}
 
 		if len(ret) == 0 {
