@@ -56,7 +56,7 @@ func Download(w http.ResponseWriter, fpath string) error {
 }
 
 const (
-	defaultErrorTmpl        = `<!DOCTYPE html>
+	defaultErrorTmpl = `<!DOCTYPE html>
 <html lang="en">
 	<meta charset="UTF-8" />
 	<title>%d - %s</title>
@@ -82,6 +82,7 @@ const (
 	</body>
 </html>`
 )
+
 var errorTmpl string = ""
 
 func Error(w http.ResponseWriter, status int, content string) error {
@@ -155,6 +156,10 @@ func AddApp(a *App) {
 
 func AddConfig(name string, value interface{}) {
 	mainServer.AddConfig(name, value)
+}
+
+func AddHook(name string, fns ...interface{}) {
+	XHook.Bind(name, fns...)
 }
 
 func SetTemplateDir(dir string) {
