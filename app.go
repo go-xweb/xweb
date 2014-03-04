@@ -366,7 +366,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		}
 
 		//[SWH|+]------------------------------------------Before-Hook
-		structName := reflect.ValueOf(route.HandlerElement.String())
+		structName := reflect.ValueOf(route.HandlerElement.Name())
 		actionName := reflect.ValueOf(route.HandlerMethod)
 		structAction := []reflect.Value{structName, actionName}
 		initM = vc.MethodByName("Before")
