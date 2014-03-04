@@ -26,7 +26,7 @@ const (
 type App struct {
 	BasePath        string
 	Name            string //[SWH|+]
-	routes          []route
+	Routes          []Route
 	filters         []Filter
 	Server          *Server
 	AppConfig       *AppConfig
@@ -64,12 +64,12 @@ type AppConfig struct {
 	EnableHttpCache   bool //[SWH|+]
 }
 
-type route struct {
-	r       string
-	cr      *regexp.Regexp
-	methods map[string]bool
-	handler string
-	ctype   reflect.Type
+type Route struct {
+	Path           string          //path string
+	CompiledRegexp *regexp.Regexp  //path regexp
+	HttpMethods    map[string]bool //GET POST HEAD DELETE etc.
+	HandlerMethod  string          //struct method name
+	HandlerElement reflect.Type    //handler element
 }
 
 func NewApp(args ...string) *App {
@@ -205,7 +205,7 @@ func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handle
 		return
 	}
 
-	a.routes = append(a.routes, route{r, cr, methods, handler, t})
+	a.Routes = append(a.Routes, Route{Path: r, CompiledRegexp: cr, HttpMethods: methods, HandlerMethod: handler, HandlerElement: t})
 }
 
 func (app *App) AddRouter(url string, c interface{}) {
@@ -302,12 +302,12 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	}
 	requestPath = req.URL.Path //[SWH|+]
 
-	for i := 0; i < len(a.routes); i++ {
-		route := a.routes[i]
-		cr := route.cr
+	for i, ln := 0, len(a.Routes); i < ln; i++ {
+		route := a.Routes[i]
+		cr := route.CompiledRegexp
 		//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
 		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
-		if _, ok := route.methods[allowMethod]; !ok {
+		if _, ok := route.HttpMethods[allowMethod]; !ok {
 			continue
 		}
 
@@ -340,7 +340,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		for _, arg := range match[1:] {
 			args = append(args, reflect.ValueOf(arg))
 		}
-		vc := reflect.New(route.ctype)
+		vc := reflect.New(route.HandlerElement)
 		c := Action{Request: req, App: a, ResponseWriter: w, T: T{}, f: T{}}
 		for k, v := range a.VarMaps {
 			c.T[k] = v
@@ -366,8 +366,8 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		}
 
 		//[SWH|+]------------------------------------------Before-Hook
-		structName := reflect.ValueOf(route.ctype.String())
-		actionName := reflect.ValueOf(route.handler)
+		structName := reflect.ValueOf(route.HandlerElement.String())
+		actionName := reflect.ValueOf(route.HandlerMethod)
 		structAction := []reflect.Value{structName, actionName}
 		initM = vc.MethodByName("Before")
 		if initM.IsValid() {
@@ -376,7 +376,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			}
 		}
 
-		ret, err := a.safelyCall(vc, route.handler, args)
+		ret, err := a.safelyCall(vc, route.HandlerMethod, args)
 		if err != nil {
 			c.GetLogger().Println(err)
 			//there was an error or panic while calling the handler
