@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"path"
 	//"reflect"
 	"fmt"
@@ -15,7 +14,7 @@ import (
 )
 
 const (
-	version = "0.1.2"
+	Version = "0.1.2"
 )
 
 // small optimization: cache the context type instead of repeteadly calling reflect.Typeof
@@ -56,7 +55,7 @@ func Download(w http.ResponseWriter, fpath string) error {
 }
 
 const (
-	defaultErrorTmpl        = `<!DOCTYPE html>
+	defaultErrorTmpl = `<!DOCTYPE html>
 <html lang="en">
 	<meta charset="UTF-8" />
 	<title>%d - %s</title>
@@ -82,25 +81,11 @@ const (
 	</body>
 </html>`
 )
+
 var errorTmpl string = ""
 
 func Error(w http.ResponseWriter, status int, content string) error {
-	w.WriteHeader(status)
-	if errorTmpl == "" {
-		errTmplFile := RootApp().AppConfig.TemplateDir + "/_error.html"
-		if file, err := os.Stat(errTmplFile); err == nil && !file.IsDir() {
-			if b, e := ioutil.ReadFile(errTmplFile); e == nil {
-				errorTmpl = string(b)
-			}
-		}
-		if errorTmpl == "" {
-			errorTmpl = defaultErrorTmpl
-		}
-	}
-	res := fmt.Sprintf(errorTmpl, status, statusText[status],
-		status, statusText[status], content, version)
-	_, err := w.Write([]byte(res))
-	return err
+	return mainServer.Error(w, status, content)
 }
 
 // Process invokes the main server's routing system.
@@ -139,6 +124,14 @@ func AutoAction(c ...interface{}) {
 
 func AddAction(c ...interface{}) {
 	mainServer.AddAction(c...)
+}
+
+func AddTmplVar(name string, varOrFun interface{}) {
+	mainServer.AddTmplVar(name, varOrFun)
+}
+
+func AddTmplVars(t *T) {
+	mainServer.AddTmplVars(t)
 }
 
 func AddRouter(url string, c interface{}) {

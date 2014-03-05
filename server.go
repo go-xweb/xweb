@@ -87,12 +87,24 @@ func (s *Server) AddRouter(url string, c interface{}) {
 	s.RootApp.AddRouter(url, c)
 }
 
+func (s *Server) AddTmplVar(name string, varOrFun interface{}) {
+	s.RootApp.AddTmplVar(name, varOrFun)
+}
+
+func (s *Server) AddTmplVars(t *T) {
+	s.RootApp.AddTmplVars(t)
+}
+
 func (s *Server) AddFilter(filter Filter) {
 	s.RootApp.AddFilter(filter)
 }
 
 func (s *Server) AddConfig(name string, value interface{}) {
 	s.RootApp.Config[name] = value
+}
+
+func (s *Server) Error(w http.ResponseWriter, status int, content string) error {
+	return s.RootApp.Error(w, status, content)
 }
 
 func (s *Server) initServer() {

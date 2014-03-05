@@ -47,10 +47,10 @@ func (s *LoginFilter) AddAskLoginUrls(urls ...string) {
 func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	requestPath := req.URL.Path
 	//fmt.Printf("LoginFilter: %v\n", requestPath)
-	sess := s.App.SessionManager.SessionStart(w, req)
-	defer sess.SessionRelease()
+	session := s.App.SessionManager.Session(req, w)
+	defer s.App.SessionManager.Invalidate(w, session)
 
-	id := sess.Get(s.SessionName)
+	id := session.Get(s.SessionName)
 	has := (id != nil)
 
 	for _, cr := range s.AskLoginUrls {

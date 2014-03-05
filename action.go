@@ -27,9 +27,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/astaxie/beego/session"
+
+	"github.com/lunny/httpsession"
 )
 
 // An Action object or it's substruct is created for every incoming HTTP request.
@@ -41,7 +41,7 @@ type Action struct {
 	App     *App
 	http.ResponseWriter
 	C            reflect.Value
-	Session      session.SessionStore
+	session      *httpsession.Session
 	T            T
 	f            T
 	RootTemplate *template.Template
@@ -499,6 +499,7 @@ func (c *Action) Namespace() string {
 	return c.App.Actions[c.C.Type()]
 }
 
+// Include method provide to template for {{include "xx.tmpl"}}
 func (c *Action) Include(tmplName string) interface{} {
 	t := c.RootTemplate.New(tmplName)
 	t.Funcs(c.getFuncs())
@@ -626,17 +627,6 @@ func (c *Action) SetHeader(key string, value string) {
 	c.ResponseWriter.Header().Set(key, value)
 }
 
-/*
-// @deprected, this function will be deleted in furtuer, please use AddTmplVar instead
-func (c *Action) AddFunc(name string, fun interface{}) {
-	c.f[name] = fun
-}
-
-// @deprected, this function will be deleted in furtuer, please use AddTmplVar instead
-func (c *Action) AddVar(name string, tvar interface{}) {
-	c.T[name] = tvar
-}*/
-
 func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
 	if reflect.ValueOf(varOrFunc).Type().Kind() == reflect.Func {
 		c.f[name] = varOrFunc
@@ -724,30 +714,9 @@ func (c *Action) SaveToFile(fromfile, tofile string) error {
 	return err
 }
 
-func (c *Action) StartSession() session.SessionStore {
-	if c.Session == nil {
-		c.Session = c.App.SessionManager.SessionStart(c.ResponseWriter, c.Request)
+func (c *Action) Session() *httpsession.Session {
+	if c.session == nil {
+		c.session = c.App.SessionManager.Session(c.Request, c.ResponseWriter)
 	}
-	return c.Session
-}
-
-func (c *Action) SetSession(name interface{}, value interface{}) {
-	if c.Session == nil {
-		c.StartSession()
-	}
-	c.Session.Set(name, value)
-}
-
-func (c *Action) GetSession(name interface{}) interface{} {
-	if c.Session == nil {
-		c.StartSession()
-	}
-	return c.Session.Get(name)
-}
-
-func (c *Action) DelSession(name interface{}) {
-	if c.Session == nil {
-		c.StartSession()
-	}
-	c.Session.Delete(name)
+	return c.session
 }
