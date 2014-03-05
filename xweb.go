@@ -4,37 +4,16 @@ package xweb
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
-	//"reflect"
-	"fmt"
-	//"strings"
 )
 
 const (
 	Version = "0.1.2"
 )
-
-// small optimization: cache the context type instead of repeteadly calling reflect.Typeof
-//var contextType reflect.Type
-
-func init() {
-	//contextType = reflect.TypeOf(Context{})
-	//find the location of the exe file
-	/*wd, _ := os.Getwd()
-	arg0 := path.Clean(os.Args[0])
-	var exeFile string
-	if strings.HasPrefix(arg0, "/") {
-		exeFile = arg0
-	} else {
-		//TODO for robustness, search each directory in $PATH
-		exeFile = path.Join(wd, arg0)
-	}
-	_, _ := path.Split(exeFile)*/
-	return
-}
 
 func Redirect(w http.ResponseWriter, url string) error {
 	w.Header().Set("Location", url)
@@ -168,7 +147,7 @@ func MainServer() *Server {
 }
 
 func RootApp() *App {
-	return MainServer().RootApp
+	return mainServer.RootApp
 }
 
 // Config is the configuration of the main server.

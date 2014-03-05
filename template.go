@@ -2,7 +2,6 @@ package xweb
 
 import (
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/howeyc/fsnotify"
 )
 
 func IsNil(a interface{}) bool {
