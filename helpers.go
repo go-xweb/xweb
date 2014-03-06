@@ -134,3 +134,11 @@ func NewCookie(name string, value string, age int64) *http.Cookie {
 	}
 	return &http.Cookie{Name: name, Value: value, Expires: utctime}
 }
+
+func removeStick(uri string) string {
+	uri = strings.TrimRight(uri, "/")
+	if uri == "" {
+		uri = "/"
+	}
+	return uri
+}

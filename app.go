@@ -201,11 +201,15 @@ func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handle
 	a.routes = append(a.routes, route{r, cr, methods, handler, t})
 }
 
+var (
+	mapperType = reflect.TypeOf(Mapper{})
+)
+
 func (app *App) AddRouter(url string, c interface{}) {
 	t := reflect.TypeOf(c).Elem()
 	app.Actions[t] = url
 	for i := 0; i < t.NumField(); i++ {
-		if t.Field(i).Type != reflect.TypeOf(Mapper{}) {
+		if t.Field(i).Type != mapperType {
 			continue
 		}
 		name := t.Field(i).Name
@@ -218,6 +222,7 @@ func (app *App) AddRouter(url string, c interface{}) {
 		tag := t.Field(i).Tag
 		tagStr := tag.Get("xweb")
 		methods := map[string]bool{"GET": true, "POST": true}
+		var p string
 		if tagStr != "" {
 			tags := strings.Split(tagStr, " ")
 			path := tagStr
@@ -239,10 +244,12 @@ func (app *App) AddRouter(url string, c interface{}) {
 				path = "/" + name
 			}
 
-			app.addRoute(strings.TrimRight(url, "/")+path, methods, t, a)
+			p = strings.TrimRight(url, "/") + path
 		} else {
-			app.addRoute(strings.TrimRight(url, "/")+"/"+name, methods, t, a)
+			p = strings.TrimRight(url, "/") + "/" + name
 		}
+
+		app.addRoute(removeStick(p), methods, t, a)
 	}
 }
 
@@ -293,9 +300,10 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	if !a.filter(w, req) {
 		return
 	}
-	requestPath = req.URL.Path //[SWH|+]
-
+	//requestPath = req.URL.Path //[SWH|+]
+	reqPath := removeStick(requestPath)
 	for i := 0; i < len(a.routes); i++ {
+
 		route := a.routes[i]
 		cr := route.cr
 		//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
@@ -304,12 +312,12 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			continue
 		}
 
-		if !cr.MatchString(requestPath) {
+		if !cr.MatchString(reqPath) {
 			continue
 		}
-		match := cr.FindStringSubmatch(requestPath)
+		match := cr.FindStringSubmatch(reqPath)
 
-		if len(match[0]) != len(requestPath) {
+		if len(match[0]) != len(reqPath) {
 			continue
 		}
 
@@ -436,7 +444,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		}
 	}
 
-	Error(w, 404, "Page not found")
+	a.Error(w, 404, "Page not found")
 
 	fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
 	a.Logger.Print(logEntry.String())

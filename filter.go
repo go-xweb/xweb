@@ -2,6 +2,7 @@ package xweb
 
 import (
 	//"fmt"
+
 	"net/http"
 	"regexp"
 )
@@ -45,13 +46,13 @@ func (s *LoginFilter) AddAskLoginUrls(urls ...string) {
 }
 
 func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
-	requestPath := req.URL.Path
-	//fmt.Printf("LoginFilter: %v\n", requestPath)
+	requestPath := removeStick(req.URL.Path)
+
 	session := s.App.SessionManager.Session(req, w)
-	defer s.App.SessionManager.Invalidate(w, session)
+	//defer s.App.SessionManager.Invalidate(w, session)
 
 	id := session.Get(s.SessionName)
-	has := (id != nil)
+	has := (id != nil && id != "")
 
 	for _, cr := range s.AskLoginUrls {
 		if !cr.MatchString(requestPath) {

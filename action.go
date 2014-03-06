@@ -538,7 +538,9 @@ func (c *Action) Include(tmplName string) interface{} {
 
 func (c *Action) NamedRender(name, content string, params ...*T) error {
 	c.f["include"] = c.Include
-	c.f["session"] = c.Session().Get
+	if c.App.AppConfig.SessionOn {
+		c.f["session"] = c.Session().Get
+	}
 	c.f["cookie"] = c.Cookie
 
 	c.f["XsrfFormHtml"] = c.XsrfFormHtml
