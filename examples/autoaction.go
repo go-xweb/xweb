@@ -5,7 +5,7 @@ import (
 )
 
 type MainAction struct {
-	xweb.Action
+	*xweb.Action
 
 	hello xweb.Mapper `xweb:"/(.*)"`
 }

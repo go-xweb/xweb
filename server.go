@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -26,13 +27,14 @@ var ServerNumber uint = 0
 
 // Server represents a xweb server.
 type Server struct {
-	Config  *ServerConfig
-	Apps    map[string]*App
-	AppName map[string]string //[SWH|+]
-	Name    string            //[SWH|+]
-	RootApp *App
-	Logger  *log.Logger
-	Env     map[string]interface{}
+	Config   *ServerConfig
+	Apps     map[string]*App
+	AppName  map[string]string //[SWH|+]
+	Name     string            //[SWH|+]
+	RootApp  *App
+	Logger   *log.Logger
+	osLogger osLogger
+	Env      map[string]interface{}
 	//save the listener so it can be closed
 	l net.Listener
 }
@@ -53,7 +55,10 @@ func NewServer(args ...string) *Server {
 		AppName: map[string]string{},
 		Name:    name,
 	}
-	Servers[s.Name] = s        //[SWH|+]
+	Servers[s.Name] = s //[SWH|+]
+
+	s.SetLogger(log.New(os.Stdout, "", log.Ldate|log.Ltime))
+
 	app := NewApp("/", "root") //[SWH|+] ,"root"
 	s.AddApp(app)
 	return s
@@ -103,17 +108,13 @@ func (s *Server) AddConfig(name string, value interface{}) {
 	s.RootApp.Config[name] = value
 }
 
-func (s *Server) Error(w http.ResponseWriter, status int, content string) error {
-	return s.RootApp.Error(w, status, content)
+func (s *Server) error(w http.ResponseWriter, status int, content string) error {
+	return s.RootApp.error(w, status, content)
 }
 
 func (s *Server) initServer() {
 	if s.Config == nil {
 		s.Config = &ServerConfig{}
-	}
-
-	if s.Logger == nil {
-		s.Logger = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	}
 
 	for _, app := range s.Apps {
@@ -127,14 +128,15 @@ func (s *Server) ServeHTTP(c http.ResponseWriter, req *http.Request) {
 }
 
 // Process invokes the routing system for server s
-func (s *Server) Process(c http.ResponseWriter, req *http.Request) {
+// non-root app's route will override root app's if there is same path
+func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
 	for _, app := range s.Apps {
 		if app != s.RootApp && strings.HasPrefix(req.URL.Path, app.BasePath) {
-			app.routeHandler(req, c)
+			app.routeHandler(req, w)
 			return
 		}
 	}
-	s.RootApp.routeHandler(req, c)
+	s.RootApp.routeHandler(req, w)
 }
 
 // Run starts the web application and serves HTTP requests for s
@@ -161,11 +163,11 @@ func (s *Server) Run(addr string) {
 	}
 	mux.Handle("/", s)
 
-	s.Logger.Printf("xweb serving %s\n", addr)
+	s.Info("http server is listening %s", addr)
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal("ListenAndServe:", err)
+		s.Error("ListenAndServe:", err)
 	}
 	s.l = l
 	err = http.Serve(s.l, mux)
@@ -175,14 +177,14 @@ func (s *Server) Run(addr string) {
 // RunFcgi starts the web application and serves FastCGI requests for s.
 func (s *Server) RunFcgi(addr string) {
 	s.initServer()
-	s.Logger.Printf("xweb serving fcgi %s\n", addr)
+	s.Info("fcgi server is listening %s", addr)
 	s.listenAndServeFcgi(addr)
 }
 
 // RunScgi starts the web application and serves SCGI requests for s.
 func (s *Server) RunScgi(addr string) {
 	s.initServer()
-	s.Logger.Printf("xweb serving scgi %s\n", addr)
+	s.Info("scgi server is listening %s", addr)
 	s.listenAndServeScgi(addr)
 }
 
@@ -193,11 +195,14 @@ func (s *Server) RunTLS(addr string, config *tls.Config) error {
 	mux.Handle("/", s)
 	l, err := tls.Listen("tcp", addr, config)
 	if err != nil {
-		log.Fatal("Listen:", err)
+		s.Error("Listen: %v", err)
 		return err
 	}
 
 	s.l = l
+
+	s.Info("https server is listening %s", addr)
+
 	return http.Serve(s.l, mux)
 }
 
@@ -211,6 +216,36 @@ func (s *Server) Close() {
 // SetLogger sets the logger for server s
 func (s *Server) SetLogger(logger *log.Logger) {
 	s.Logger = logger
+	s.Logger.SetPrefix("[" + s.Name + "] ")
+	if runtime.GOOS == "windows" {
+		s.osLogger = winLog
+	} else {
+		s.osLogger = unixLog
+	}
+}
+
+func (s *Server) Trace(format string, params ...interface{}) {
+	s.osLogger(s.Logger, ForeCyan, format, params...)
+}
+
+func (s *Server) Debug(format string, params ...interface{}) {
+	s.osLogger(s.Logger, ForeBlue, format, params...)
+}
+
+func (s *Server) Info(format string, params ...interface{}) {
+	s.osLogger(s.Logger, ForeGreen, format, params...)
+}
+
+func (s *Server) Warn(format string, params ...interface{}) {
+	s.osLogger(s.Logger, ForeYellow, format, params...)
+}
+
+func (s *Server) Error(format string, params ...interface{}) {
+	s.osLogger(s.Logger, ForeRed, format, params...)
+}
+
+func (s *Server) Critical(format string, params ...interface{}) {
+	s.osLogger(s.Logger, ForePurple, format, params...)
 }
 
 func (s *Server) SetTemplateDir(path string) {

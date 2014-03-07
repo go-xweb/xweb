@@ -11,7 +11,7 @@ import (
 )
 
 type MainAction struct {
-	xweb.Action
+	*xweb.Action
 
 	root   xweb.Mapper `xweb:"GET /"`
 	list   xweb.Mapper `xweb:"GET /list"`

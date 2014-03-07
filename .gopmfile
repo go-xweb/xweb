@@ -1,5 +1,2 @@
 [target]
 path=github.com/lunny/xweb
-
-[deps]
-github.com/astaxie/beego/session=tag:v0.9.0

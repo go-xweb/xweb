@@ -1,8 +1,6 @@
 package xweb
 
 import (
-	//"fmt"
-
 	"net/http"
 	"regexp"
 )
@@ -28,6 +26,7 @@ func NewLoginFilter(app *App, name string, redirect string) *LoginFilter {
 }
 
 func (s *LoginFilter) AddAnonymousUrls(urls ...string) {
+	urls = append(urls, "/favicon.ico")
 	for _, r := range urls {
 		cr, err := regexp.Compile(r)
 		if err == nil {
@@ -63,7 +62,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 			continue
 		}
 		if !has {
-			Redirect(w, s.Redirect)
+			s.App.Redirect(w, requestPath, s.Redirect)
 		}
 		return has
 	}
@@ -84,7 +83,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	}
 
 	if !has {
-		Redirect(w, s.Redirect)
+		s.App.Redirect(w, requestPath, s.Redirect)
 	}
 	return has
 }

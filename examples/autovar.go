@@ -21,7 +21,7 @@ type User struct {
 }
 
 type MainAction struct {
-	xweb.Action
+	*xweb.Action
 
 	get xweb.Mapper `xweb:"/"`
 

@@ -12,12 +12,16 @@ import (
 )
 
 const (
-	Version = "0.1.2"
+	Version = "0.1.3"
 )
 
-func Redirect(w http.ResponseWriter, url string) error {
+func redirect(w http.ResponseWriter, url string, status ...int) error {
+	s := 302
+	if len(status) > 0 {
+		s = status[0]
+	}
 	w.Header().Set("Location", url)
-	w.WriteHeader(302)
+	w.WriteHeader(s)
 	_, err := w.Write([]byte("Redirecting to: " + url))
 	return err
 }
@@ -64,7 +68,7 @@ const (
 var errorTmpl string = ""
 
 func Error(w http.ResponseWriter, status int, content string) error {
-	return mainServer.Error(w, status, content)
+	return mainServer.error(w, status, content)
 }
 
 // Process invokes the main server's routing system.
@@ -139,7 +143,7 @@ func SetStaticDir(dir string) {
 
 // SetLogger sets the logger for the main server.
 func SetLogger(logger *log.Logger) {
-	mainServer.Logger = logger
+	mainServer.SetLogger(logger)
 }
 
 func MainServer() *Server {

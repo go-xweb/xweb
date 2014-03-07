@@ -22,7 +22,7 @@ var page = `
 `
 
 type MainAction struct {
-	xweb.Action
+	*xweb.Action
 
 	upload xweb.Mapper `xweb:"/"`
 

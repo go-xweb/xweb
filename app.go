@@ -1,7 +1,6 @@
 package xweb
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"html/template"
@@ -121,6 +120,10 @@ func (a *App) initApp() {
 		a.SessionManager = httpsession.Default()
 		a.SessionManager.Run()
 	}
+
+	if a.Logger == nil {
+		a.Logger = a.Server.Logger
+	}
 }
 
 func (a *App) SetStaticDir(dir string) {
@@ -182,6 +185,34 @@ func (app *App) AddFilter(filter Filter) {
 	app.filters = append(app.filters, filter)
 }
 
+func (app *App) log(color int, format string, params ...interface{}) {
+	app.Server.osLogger(app.Logger, color, "["+app.Name+"] "+format, params...)
+}
+
+func (app *App) Trace(format string, params ...interface{}) {
+	app.log(ForeCyan, format, params...)
+}
+
+func (app *App) Debug(format string, params ...interface{}) {
+	app.log(ForeBlue, format, params...)
+}
+
+func (app *App) Info(format string, params ...interface{}) {
+	app.log(ForeGreen, format, params...)
+}
+
+func (app *App) Warn(format string, params ...interface{}) {
+	app.log(ForeYellow, format, params...)
+}
+
+func (app *App) Error(format string, params ...interface{}) {
+	app.log(ForeRed, format, params...)
+}
+
+func (app *App) Critical(format string, params ...interface{}) {
+	app.log(ForePurple, format, params...)
+}
+
 func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 	for _, filter := range app.filters {
 		if !filter.Do(w, req) {
@@ -194,7 +225,7 @@ func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
 	cr, err := regexp.Compile(r)
 	if err != nil {
-		a.Logger.Printf("Error in route regex %q\n", r)
+		a.Error("Error in route regex %q: %s", r, err)
 		return
 	}
 
@@ -253,23 +284,20 @@ func (app *App) AddRouter(url string, c interface{}) {
 	}
 }
 
-const (
-	ForeBlack  = iota + 30 //30         40         黑色
-	ForeRed                //31         41         紅色
-	ForeGreen              //32         42         綠色
-	ForeYellow             //33         43         黃色
-	ForeBlue               //34         44         藍色
-	ForePurple             //35         45         紫紅色
-	ForeCyan               //36         46         青藍色
-	ForeWhite              //37         47         白色
-)
-
 // the main route handler in web.go
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	requestPath := req.URL.Path
-
-	//log the request
-	var logEntry bytes.Buffer
+	var statusCode = 0
+	defer func() {
+		if statusCode == 0 {
+			statusCode = 200
+		}
+		if statusCode >= 200 && statusCode < 400 {
+			a.Info("%s %d %s", req.Method, statusCode, requestPath)
+		} else {
+			a.Error("%s %d %s", req.Method, statusCode, requestPath)
+		}
+	}()
 
 	//ignore errors from ParseForm because it's usually harmless.
 	ct := req.Header.Get("Content-Type")
@@ -288,8 +316,12 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	if req.Method == "GET" || req.Method == "HEAD" {
 		success := a.tryServingFile(requestPath, req, w)
 		if success {
-			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
-			a.Logger.Print(logEntry.String())
+			statusCode = 200
+			return
+		}
+		if requestPath == "/favicon.ico" {
+			statusCode = 404
+			a.error(w, 404, "Page not found")
 			return
 		}
 	}
@@ -298,12 +330,12 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	if !a.filter(w, req) {
+		statusCode = 302
 		return
 	}
-	//requestPath = req.URL.Path //[SWH|+]
+
 	reqPath := removeStick(requestPath)
 	for i := 0; i < len(a.routes); i++ {
-
 		route := a.routes[i]
 		cr := route.cr
 		//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
@@ -329,10 +361,8 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 				formVal = formVals[0]
 			}
 			if err != nil || res.Value == "" || res.Value != formVal {
-				Error(w, 500, "xrsf token error.")
-
-				fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
-				a.Logger.Print(logEntry.String())
+				a.error(w, 500, "xrsf token error.")
+				statusCode = 500
 				return
 			}
 		}
@@ -342,10 +372,11 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			args = append(args, reflect.ValueOf(arg))
 		}
 		vc := reflect.New(route.ctype)
-		c := Action{Request: req, App: a, ResponseWriter: w, T: T{}, f: T{}}
+		c := &Action{Request: req, App: a, ResponseWriter: w, T: T{}, f: T{}}
 		for k, v := range a.VarMaps {
 			c.T[k] = v
 		}
+
 		fieldA := vc.Elem().FieldByName("Action")
 		if fieldA.IsValid() {
 			fieldA.Set(reflect.ValueOf(c))
@@ -356,7 +387,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			fieldC.Set(reflect.ValueOf(vc))
 		}
 
-		if c.App.AppConfig.FormMapToStruct {
+		if a.AppConfig.FormMapToStruct {
 			a.StructMap(vc.Elem(), req)
 		}
 
@@ -379,17 +410,17 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 		ret, err := a.safelyCall(vc, route.handler, args)
 		if err != nil {
-			c.GetLogger().Println(err)
+			a.error(w, 500, fmt.Sprintf("handler error: %v", err))
 			//there was an error or panic while calling the handler
-			if c.App.AppConfig.Mode == Debug {
-				c.Abort(500, err.Error())
-			} else if c.App.AppConfig.Mode == Product {
-				c.Abort(500, "Server Error")
+			if a.AppConfig.Mode == Debug {
+				a.error(w, 500, err.Error())
+			} else if a.AppConfig.Mode == Product {
+				a.error(w, 500, "Server Error")
 			}
-			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
-			c.App.Logger.Print(logEntry.String())
+			statusCode = 500
 			return
 		}
+		statusCode = fieldA.Interface().(*Action).StatusCode
 
 		//[SWH|+]------------------------------------------After-Hook
 		initM = vc.MethodByName("After")
@@ -408,49 +439,50 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		sval := ret[0]
 
 		var content []byte
-		if sval.Kind() == reflect.String {
+		if sval.Interface() == nil {
+			return
+		} else if sval.Kind() == reflect.String {
 			content = []byte(sval.String())
 		} else if sval.Kind() == reflect.Slice && sval.Type().Elem().Kind() == reflect.Uint8 {
 			content = sval.Interface().([]byte)
-		} else if e, ok := sval.Interface().(error); ok && e != nil {
-			c.GetLogger().Println(e)
-			c.Abort(500, "Server Error")
-			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
-			c.App.Logger.Print(logEntry.String())
+		} else if err, ok := sval.Interface().(error); ok {
+			if err != nil {
+				a.Error("Error : %v", err)
+				a.error(w, 500, "Server Error")
+				statusCode = 500
+			}
+			return
+		} else {
+			a.Warn("unkonw returned result type %v, ignored %v", sval,
+				sval.Interface().(error))
 			return
 		}
 
-		c.SetHeader("Content-Length", strconv.Itoa(len(content)))
-		_, err = c.ResponseWriter.Write(content)
+		w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+		_, err = w.Write(content)
 		if err != nil {
-			a.Logger.Println("Error during write: ", err)
+			a.Error("Error during write: %v", err)
+			statusCode = 500
+			return
 		}
-
-		fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
-		c.App.Logger.Print(logEntry.String())
-		return
 	}
 
 	// try serving index.html or index.htm
 	if req.Method == "GET" || req.Method == "HEAD" {
 		if a.tryServingFile(path.Join(requestPath, "index.html"), req, w) {
-			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
-			a.Logger.Print(logEntry.String())
+			statusCode = 200
 			return
 		} else if a.tryServingFile(path.Join(requestPath, "index.htm"), req, w) {
-			fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeGreen, req.Method, requestPath)
-			a.Logger.Print(logEntry.String())
+			statusCode = 200
 			return
 		}
 	}
 
-	a.Error(w, 404, "Page not found")
-
-	fmt.Fprintf(&logEntry, "\033[%v;1m%s %s\033[0m", ForeRed, req.Method, requestPath)
-	a.Logger.Print(logEntry.String())
+	a.error(w, 404, "Page not found")
+	statusCode = 404
 }
 
-func (a *App) Error(w http.ResponseWriter, status int, content string) error {
+func (a *App) error(w http.ResponseWriter, status int, content string) error {
 	w.WriteHeader(status)
 	if errorTmpl == "" {
 		errTmplFile := a.AppConfig.TemplateDir + "/_error.html"
@@ -561,6 +593,10 @@ var (
 // StructMap function mapping params to controller's properties
 func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 	for k, t := range r.Form {
+		if k == XSRF_TAG {
+			continue
+		}
+
 		v := t[0]
 		names := strings.Split(k, ".")
 		var value reflect.Value = vc
@@ -568,17 +604,17 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 			name = strings.Title(name)
 			if i != len(names)-1 {
 				if value.Kind() != reflect.Struct {
-					a.Logger.Printf("arg error, value kind is %v\n", value.Kind())
+					a.Warn("arg error, value kind is %v", value.Kind())
 					break
 				}
 
 				value = value.FieldByName(name)
 				if !value.IsValid() {
-					a.Logger.Printf("(%v value is not valid %v)\n", name, value.Interface())
+					a.Warn("(%v value is not valid %v)", name, value.Interface())
 					break
 				}
 				if !value.CanSet() {
-					a.Logger.Printf("can not set %v -> %v\n", name, value.Interface())
+					a.Warn("can not set %v -> %v", name, value.Interface())
 					break
 				}
 
@@ -591,11 +627,11 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 			} else {
 				tv := value.FieldByName(name)
 				if !tv.IsValid() {
-					a.Logger.Printf("struct %v has no field named %v\n", value, name)
+					a.Warn("struct %v has no field named %v", value, name)
 					break
 				}
 				if !tv.CanSet() {
-					a.Logger.Printf("can not set %v\n", k)
+					a.Warn("can not set %v", k)
 					break
 				}
 
@@ -615,7 +651,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 					x, err := strconv.Atoi(v)
 					if err != nil {
-						a.Logger.Printf("arg %v as int: %v\n", v, err)
+						a.Warn("arg %v as int: %v", v, err)
 						break
 					}
 					l = x
@@ -623,7 +659,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Int64:
 					x, err := strconv.ParseInt(v, 10, 64)
 					if err != nil {
-						a.Logger.Printf("arg %v as int64: %v\n", v, err)
+						a.Warn("arg %v as int64: %v", v, err)
 						break
 					}
 					l = x
@@ -631,7 +667,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Float32, reflect.Float64:
 					x, err := strconv.ParseFloat(v, 64)
 					if err != nil {
-						a.Logger.Printf("arg %v as float64: %v\n", v, err)
+						a.Warn("arg %v as float64: %v", v, err)
 						break
 					}
 					l = x
@@ -639,7 +675,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 					x, err := strconv.ParseUint(v, 10, 64)
 					if err != nil {
-						a.Logger.Printf("arg %v as uint: %v\n", v, err)
+						a.Warn("arg %v as uint: %v", v, err)
 						break
 					}
 					l = x
@@ -648,7 +684,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 					if tvf, ok := tv.Interface().(FromConversion); ok {
 						err := tvf.FromString(v)
 						if err != nil {
-							a.Logger.Printf("struct %v invoke FromString faild\n", tvf)
+							a.Warn("struct %v invoke FromString faild", tvf)
 						}
 					} else if tv.Type().String() == "time.Time" {
 						x, err := time.Parse("2006-01-02 15:04:05.000 -0700", v)
@@ -657,7 +693,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 							if err != nil {
 								x, err = time.Parse("2006-01-02", v)
 								if err != nil {
-									a.Logger.Printf("unsupported time format: %v\n", v)
+									a.Warn("unsupported time format %v, %v", v, err)
 									break
 								}
 							}
@@ -665,10 +701,10 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 						l = x
 						tv.Set(reflect.ValueOf(l))
 					} else {
-						a.Logger.Printf("can not set an struct which is not implement Fromconversion interface")
+						a.Warn("can not set an struct which is not implement Fromconversion interface")
 					}
 				case reflect.Ptr:
-					a.Logger.Printf("can not set an ptr of ptr\n")
+					a.Warn("can not set an ptr of ptr")
 				case reflect.Slice, reflect.Array:
 					// TODO: currently only support []string, need to
 					tt := tv.Type().Elem()
@@ -716,7 +752,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 							err = fmt.Errorf("unsupported slice element type %v", tk.String())
 						}
 						if err != nil {
-							fmt.Println("slice error:", name, err)
+							a.Warn("slice error: %v, %v", name, err)
 							break
 						}
 					}
@@ -725,6 +761,15 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status ...int) error {
+	err := redirect(w, url, status...)
+	if err != nil {
+		app.Error("redirect error: %s", err)
+		return err
 	}
 	return nil
 }

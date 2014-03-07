@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/lunny/xweb"
 	"log"
 	"os"
+
+	"github.com/lunny/xweb"
 )
 
 type MainAction struct {
-	xweb.Action
+	*xweb.Action
 
 	hello xweb.Mapper `xweb:"/(.*)"`
 }

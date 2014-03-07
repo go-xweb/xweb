@@ -3,13 +3,13 @@ package xweb
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"io"
-	//"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"sync"
+
+	"github.com/howeyc/fsnotify"
 )
 
 type StaticVerMgr struct {

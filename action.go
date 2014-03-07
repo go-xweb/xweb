@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"code.google.com/p/go-uuid/uuid"
 
+	"code.google.com/p/go-uuid/uuid"
 	"github.com/lunny/httpsession"
 )
 
@@ -46,6 +46,7 @@ type Action struct {
 	f            T
 	RootTemplate *template.Template
 	RequestBody  []byte
+	StatusCode   int
 }
 
 type Mapper struct {
@@ -332,28 +333,30 @@ func (c *Action) Write(content string, values ...interface{}) error {
 // Once it has been called, any return value from the handler will
 // not be written to the response.
 func (c *Action) Abort(status int, body string) error {
+	c.StatusCode = status
 	return Error(c.ResponseWriter, status, body)
 }
 
 // Redirect is a helper method for 3xx redirects.
 func (c *Action) Redirect(url string, status ...int) error {
-	s := 302
-	if len(status) > 0 {
-		s = status[0]
+	if len(status) == 0 {
+		c.StatusCode = 302
+	} else {
+		c.StatusCode = status[0]
 	}
-	c.ResponseWriter.Header().Set("Location", url)
-	c.ResponseWriter.WriteHeader(s)
-	_, err := c.ResponseWriter.Write([]byte("Redirecting to: " + url))
-	return err
+	return c.App.Redirect(c.ResponseWriter, c.Request.URL.Path, url, status...)
+
 }
 
 // Notmodified writes a 304 HTTP response
 func (c *Action) NotModified() {
+	c.StatusCode = 304
 	c.ResponseWriter.WriteHeader(304)
 }
 
 // NotFound writes a 404 HTTP response
 func (c *Action) NotFound(message string) error {
+	c.StatusCode = 404
 	return c.Abort(404, message)
 }
 
@@ -499,6 +502,30 @@ func (c *Action) Namespace() string {
 	return c.App.Actions[c.C.Type()]
 }
 
+func (c *Action) Trace(format string, params ...interface{}) {
+	c.App.Trace(format, params...)
+}
+
+func (c *Action) Debug(format string, params ...interface{}) {
+	c.App.Debug(format, params...)
+}
+
+func (c *Action) Info(format string, params ...interface{}) {
+	c.App.Info(format, params...)
+}
+
+func (c *Action) Warn(format string, params ...interface{}) {
+	c.App.Warn(format, params...)
+}
+
+func (c *Action) Error(format string, params ...interface{}) {
+	c.App.Error(format, params...)
+}
+
+func (c *Action) Critical(format string, params ...interface{}) {
+	c.App.Critical(format, params...)
+}
+
 // Include method provide to template for {{include "xx.tmpl"}}
 func (c *Action) Include(tmplName string) interface{} {
 	t := c.RootTemplate.New(tmplName)
@@ -506,7 +533,7 @@ func (c *Action) Include(tmplName string) interface{} {
 
 	content, err := c.getTemplate(tmplName)
 	if err != nil {
-		c.App.Logger.Printf("RenderTemplate %v read err\n", tmplName)
+		c.Error("RenderTemplate %v read err: %s", tmplName, err)
 		return ""
 	}
 
@@ -517,7 +544,7 @@ func (c *Action) Include(tmplName string) interface{} {
 	}
 	tmpl, err := t.Parse(constr)
 	if err != nil {
-		c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
+		c.Error("Parse %v err: %v", tmplName, err)
 		return ""
 	}
 	newbytes := bytes.NewBufferString("")
@@ -525,13 +552,13 @@ func (c *Action) Include(tmplName string) interface{} {
 	if err == nil {
 		tplcontent, err := ioutil.ReadAll(newbytes)
 		if err != nil {
-			c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
+			c.Error("Parse %v err: %v", tmplName, err)
 			return ""
 		} else {
 			return template.HTML(string(tplcontent))
 		}
 	} else {
-		c.App.Logger.Printf("Parse %v err: %v\n", tmplName, err)
+		c.Error("Parse %v err: %v", tmplName, err)
 		return ""
 	}
 }
@@ -539,7 +566,7 @@ func (c *Action) Include(tmplName string) interface{} {
 func (c *Action) NamedRender(name, content string, params ...*T) error {
 	c.f["include"] = c.Include
 	if c.App.AppConfig.SessionOn {
-		c.f["session"] = c.Session().Get
+		c.f["session"] = c.GetSession
 	}
 	c.f["cookie"] = c.Cookie
 
@@ -724,4 +751,16 @@ func (c *Action) Session() *httpsession.Session {
 		c.session = c.App.SessionManager.Session(c.Request, c.ResponseWriter)
 	}
 	return c.session
+}
+
+func (c *Action) GetSession(key string) interface{} {
+	return c.Session().Get(key)
+}
+
+func (c *Action) SetSession(key string, value interface{}) {
+	c.Session().Set(key, value)
+}
+
+func (c *Action) DelSession(key string) {
+	c.Session().Del(key)
 }

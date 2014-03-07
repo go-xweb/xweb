@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/lunny/xweb"
 	"html"
+
+	"github.com/lunny/xweb"
 )
 
 var cookieName = "cookie"
@@ -25,7 +26,7 @@ var form = `
 `
 
 type CookieAction struct {
-	xweb.Action
+	*xweb.Action
 
 	index  xweb.Mapper `xweb:"/"`
 	update xweb.Mapper
