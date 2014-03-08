@@ -133,6 +133,10 @@ func AddConfig(name string, value interface{}) {
 	mainServer.AddConfig(name, value)
 }
 
+func AddHook(name string, fns ...interface{}) {
+	XHook.Bind(name, fns...)
+}
+
 func SetTemplateDir(dir string) {
 	mainServer.SetTemplateDir(dir)
 }
