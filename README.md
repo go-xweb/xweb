@@ -6,6 +6,10 @@ xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些
 
 [![Build Status](https://drone.io/github.com/lunny/xweb/status.png)](https://drone.io/github.com/lunny/xweb/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/lunny/xweb) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/lunny/xweb/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
+## 技术支持
+
+QQ群：369240307
+
 ## 更新日志
 
 * **v0.1.2** : 采用 [github.com/lunny/httpsession](http://github.com/lunny/httpsession) 作为session组件，API保持兼容；Action现在必须从*Action继承，这个改变与以前的版本不兼容，必须更改代码；新增两个模板函数{{session "key"}} 和 {{cookie "key"}}；Action新增函数`MapForm`
