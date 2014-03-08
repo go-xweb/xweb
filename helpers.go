@@ -100,6 +100,13 @@ func Urlencode(data map[string]string) string {
 	return s[0 : len(s)-1]
 }
 
+func UnTitle(s string) string {
+	if len(s) < 2 {
+		return strings.ToLower(s)
+	}
+	return strings.ToLower(string(s[0])) + s[1:]
+}
+
 var slugRegex = regexp.MustCompile(`(?i:[^a-z0-9\-_])`)
 
 // Slug is a helper function that returns the URL slug for string s.

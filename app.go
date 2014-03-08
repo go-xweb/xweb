@@ -353,26 +353,22 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			continue
 		}
 
-		if a.AppConfig.CheckXrsf && req.Method == "POST" {
-			res, err := req.Cookie(XSRF_TAG)
-			formVals := req.Form[XSRF_TAG]
-			var formVal string
-			if len(formVals) > 0 {
-				formVal = formVals[0]
-			}
-			if err != nil || res.Value == "" || res.Value != formVal {
-				a.error(w, 500, "xrsf token error.")
-				statusCode = 500
-				return
-			}
-		}
-
 		var args []reflect.Value
 		for _, arg := range match[1:] {
 			args = append(args, reflect.ValueOf(arg))
 		}
 		vc := reflect.New(route.ctype)
-		c := &Action{Request: req, App: a, ResponseWriter: w, T: T{}, f: T{}}
+		c := &Action{
+			Request:        req,
+			App:            a,
+			ResponseWriter: w,
+			T:              T{},
+			f:              T{},
+			Option: &ActionOption{
+				AutoMapForm: a.AppConfig.FormMapToStruct,
+				CheckXrsf:   a.AppConfig.CheckXrsf,
+			},
+		}
 		for k, v := range a.VarMaps {
 			c.T[k] = v
 		}
@@ -387,14 +383,29 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			fieldC.Set(reflect.ValueOf(vc))
 		}
 
-		if a.AppConfig.FormMapToStruct {
-			a.StructMap(vc.Elem(), req)
-		}
-
 		initM := vc.MethodByName("Init")
 		if initM.IsValid() {
 			params := []reflect.Value{}
 			initM.Call(params)
+		}
+
+		if c.Option.AutoMapForm {
+			a.StructMap(vc.Elem(), req)
+		}
+
+		if c.Option.CheckXrsf && req.Method == "POST" {
+			res, err := req.Cookie(XSRF_TAG)
+			formVals := req.Form[XSRF_TAG]
+			var formVal string
+			if len(formVals) > 0 {
+				formVal = formVals[0]
+			}
+			if err != nil || res.Value == "" || res.Value != formVal {
+				a.error(w, 500, "xrsf token error.")
+				a.Error("xrsf token error.")
+				statusCode = 500
+				return
+			}
 		}
 
 		//[SWH|+]------------------------------------------Before-Hook
@@ -592,9 +603,17 @@ var (
 
 // StructMap function mapping params to controller's properties
 func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
+	return a.namedStructMap(vc, r, "")
+}
+
+func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) error {
 	for k, t := range r.Form {
 		if k == XSRF_TAG {
 			continue
+		}
+
+		if topName != "" {
+			k = k[len(topName)+1:]
 		}
 
 		v := t[0]

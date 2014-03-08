@@ -11,7 +11,6 @@ Make sure you have installed Go 1.1+ and then:
 
     go get github.com/lunny/xweb
 
-
 More usage, please visit https://github.com/lunny/xweb/
 */
 package xweb

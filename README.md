@@ -8,6 +8,7 @@ xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些
 
 ## 更新日志
 
+* **v0.1.2** : 采用 [github.com/lunny/httpsession](http://github.com/lunny/httpsession) 作为session组件，API保持兼容；Action现在必须从*Action继承，这个改变与以前的版本不兼容，必须更改代码；新增两个模板函数{{session "key"}} 和 {{cookie "key"}}
 * **v0.1.1** : App新增AutoAction方法；Action新增AddTmplVar方法；Render方法的模版渲染方法中可以通过T混合传入函数和变量，更新了[快速入门](https://github.com/lunny/xweb/tree/master/docs/intro.md)。
 * **v0.1.0** : 初始版本
 
@@ -15,6 +16,8 @@ xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些
 
 * 在一个可执行程序中多Server，多App的支持
 * 简单好用的路由映射方式
+* 静态文件及版本支持，并支持自动加载，默认开启
+* 改进的模版支持，并支持自动加载，默认开启
 
 ## 安装
 
@@ -30,7 +33,8 @@ xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些
 
 ## 案例
 
-* [Godaily.org](http://godaily.org)
+* [Godaily.org](http://godaily.org) - [github.com/govc/godaily](http://github.com/govc/godaily)
+* [gopm.io](http://gopm.io) - [github.com/gpmgo/gopm](http://github.com/gpmgo/gopm)
 
 ## 文档
 

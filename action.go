@@ -32,6 +32,11 @@ import (
 	"github.com/lunny/httpsession"
 )
 
+type ActionOption struct {
+	AutoMapForm bool
+	CheckXrsf   bool
+}
+
 // An Action object or it's substruct is created for every incoming HTTP request.
 // It provides information
 // about the request, including the http.Request object, the GET and POST params,
@@ -39,6 +44,7 @@ import (
 type Action struct {
 	Request *http.Request
 	App     *App
+	Option  *ActionOption
 	http.ResponseWriter
 	C            reflect.Value
 	session      *httpsession.Session
@@ -334,7 +340,7 @@ func (c *Action) Write(content string, values ...interface{}) error {
 // not be written to the response.
 func (c *Action) Abort(status int, body string) error {
 	c.StatusCode = status
-	return Error(c.ResponseWriter, status, body)
+	return c.App.error(c.ResponseWriter, status, body)
 }
 
 // Redirect is a helper method for 3xx redirects.
@@ -345,7 +351,6 @@ func (c *Action) Redirect(url string, status ...int) error {
 		c.StatusCode = status[0]
 	}
 	return c.App.Redirect(c.ResponseWriter, c.Request.URL.Path, url, status...)
-
 }
 
 // Notmodified writes a 304 HTTP response
@@ -358,6 +363,34 @@ func (c *Action) NotModified() {
 func (c *Action) NotFound(message string) error {
 	c.StatusCode = 404
 	return c.Abort(404, message)
+}
+
+// ParseStruct mapping forms' name and values to struct's field
+// For example:
+//		<form>
+//			<input name="user.id"/>
+//			<input name="user.name"/>
+//			<input name="user.age"/>
+//		</form>
+//
+//		type User struct {
+//			Id int64
+//			Name string
+//			Age string
+//		}
+//
+//		var user User
+//		err := action.MapForm(&user)
+//
+func (c *Action) MapForm(st interface{}, names ...string) error {
+	v := reflect.ValueOf(st)
+	var name string
+	if len(names) == 0 {
+		name = UnTitle(v.Type().Name())
+	} else {
+		name = names[0]
+	}
+	return c.App.namedStructMap(v.Elem(), c.Request, name)
 }
 
 // ContentType sets the Content-Type header for an HTTP response.
@@ -549,43 +582,35 @@ func (c *Action) Include(tmplName string) interface{} {
 	}
 	newbytes := bytes.NewBufferString("")
 	err = tmpl.Execute(newbytes, c.C.Elem().Interface())
-	if err == nil {
-		tplcontent, err := ioutil.ReadAll(newbytes)
-		if err != nil {
-			c.Error("Parse %v err: %v", tmplName, err)
-			return ""
-		} else {
-			return template.HTML(string(tplcontent))
-		}
-	} else {
+	if err != nil {
 		c.Error("Parse %v err: %v", tmplName, err)
 		return ""
 	}
+
+	tplcontent, err := ioutil.ReadAll(newbytes)
+	if err != nil {
+		c.Error("Parse %v err: %v", tmplName, err)
+		return ""
+	}
+	return template.HTML(string(tplcontent))
 }
 
+// render the template with vars map, you can have zero or one map
 func (c *Action) NamedRender(name, content string, params ...*T) error {
 	c.f["include"] = c.Include
 	if c.App.AppConfig.SessionOn {
 		c.f["session"] = c.GetSession
 	}
 	c.f["cookie"] = c.Cookie
-
 	c.f["XsrfFormHtml"] = c.XsrfFormHtml
 	c.f["XsrfValue"] = c.XsrfValue
-
-	c.RootTemplate = template.New(name)
-
 	if len(params) > 0 {
-		for k, v := range *params[0] {
-			if reflect.ValueOf(v).Type().Kind() == reflect.Func {
-				c.f[k] = v
-			} else {
-				c.T[k] = v
-			}
-		}
+		c.AddTmplVars(params[0])
 	}
 
+	c.RootTemplate = template.New(name)
 	c.RootTemplate.Funcs(c.getFuncs())
+
 	//[SWH|+]call hook
 	if r, err := XHook.Call("BeforeRender", content, c); err == nil {
 		content = XHook.String(r[0])
@@ -623,6 +648,7 @@ func (c *Action) getTemplate(tmpl string) ([]byte, error) {
 	return ioutil.ReadFile(path)
 }
 
+// render the template with vars map, you can have zero or one map
 func (c *Action) Render(tmpl string, params ...*T) error {
 	content, err := c.getTemplate(tmpl)
 	if err == nil {
@@ -659,6 +685,7 @@ func (c *Action) SetHeader(key string, value string) {
 	c.ResponseWriter.Header().Set(key, value)
 }
 
+// add a name value for template
 func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
 	if reflect.ValueOf(varOrFunc).Type().Kind() == reflect.Func {
 		c.f[name] = varOrFunc
@@ -667,6 +694,7 @@ func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
 	}
 }
 
+// add names and values for template
 func (c *Action) AddTmplVars(t *T) {
 	for name, value := range *t {
 		c.AddTmplVar(name, value)

@@ -1,22 +1,25 @@
-#xweb介绍
+# xweb介绍
 
-xweb是一个go语言的web框架，最初的版本基于web.go，目前已经和web.go相差比较大了。
+xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些类似。
 
-#xweb特性
+# xweb特性
 
-1. 简单好用的路由规则
-2. 静态文件支持，并支持自动加载，默认开启
-3. 模版支持，并支持自动加载，默认开启
+* 在一个可执行程序中多Server，多App的支持
+* 简单好用的路由映射方式
+* 静态文件及版本支持，并支持自动加载，默认开启
+* 改进的模版支持，并支持自动加载，默认开启
 
-#注意事项
+# 注意事项
 
 * 如果开启了静态文件自动加载和模板文件自动加载，则请确保再启动服务之前调用过 ulimit -n 将最大文件打开数目调整到了一个合适的数值。
 
 * 默认开启了防xsrf措施
 
-#Server
+# Server
 
-默认的Server为mainServer，这是一个全局变量。如果我们只需要一个server和一个app，则可以直接调用
+默认的Server为mainServer，这是一个全局变量。
+
+如果我们只需要一个server和一个app，则可以直接调用
 ```Go
 xweb.AddAction
 xweb.AutoAction
@@ -25,11 +28,11 @@ xweb.Run
 ```
 即可运行服务器。
 
-#App
+# App
 
 每个Server都有一个默认的App，当然一个Server可以有多个App，每个App所对应到Server的路径是不同的。
 
-#路由映射
+# 路由映射
 
 App路由映射其实有两个层次，一个层次是App层，一个App及其之下的所有Action都在某个路径之下。另一个是Action层次，每个Action都可以定义多个Mapper，一个Mapper对应一个路有规则。
 
@@ -85,7 +88,6 @@ func (this *MainAction) Login() {
 Tag语法用空格分为如下几部分：
 GET|POST		方法名，多个方法中间用|分隔
 /(.*)			路径名，可以采用正则表达式
-AUTO|JSON|XML   Response的方式，默认为AUTO，即自动判断，同时支持JSON和XML以及自定义方法，只要实现了xxx接口，并且进行了注册即可。
 
 # Filter
 如果要对每次请求都进行过滤，那么可以采用Filter来进行，Filter是一个接口，接口定义如下：
@@ -98,19 +100,76 @@ type Filter interface {
 
 # 请求映射
 
-通常我们通过http.Request.Form来获得从用户中请求到服务器端的数据，这些数据一般都是采用name，value的形式提交的。xweb同时提供了两种方式来获得这些数据，一种是通过Action的成员方法，GetSlice，GetString之类的；另外一种，则是通过自动映射来实现的。例如：
+## 获取Form变量
+
+通过Action的如下方法可以获取变量：
+
+* GetSlice
+* GetString
+* GetInt
+* GetBool
+* GetFloat
+* GetFile
+* GetForm
+
+## 自动映射
+
+通常我们通过http.Request.Form来获得从用户中请求到服务器端的数据，这些数据一般都是采用name，value的形式提交的。xweb默认支持自动将这些变量映射到Action的成员中，并且这种映射支持子Struct。例如：
+
 ```Go
 type HomeAction struct {
-	Action
+	*Action
 	Name string
 	User User
 }
 ```
 
-如果在提交的表单中有一个key为name的键值对，则对应的value就会自动赋值到Name这个filed中，这种命名也可以通过.来进行传递。如：上述代码中的User结构体可以通过user.id的key来对期成员赋值。
+那么当页面为：
+```Go
+<form>
+<input name="name"/>
+<input name="user.id"/>
+</form>
+```
+时，变量会自动映射到`HomeAction`的成员`Name`和`User`上。
+
+如果希望关闭
+那么可以在`Actions`的`Init()`方法中通过`Action.Option.AutoMapForm = false`来进行关闭。
+
+## 手动映射
+
+如果希望手动进行映射，那么，可以通过`Action.MapForm`方法来进行映射，例如：
+
+```Go
+type User struct {
+	Id   int64
+	Name string
+	Age  float64
+}
+func (c *MainAction) Init() {
+	c.Option.AutoMapForm = false
+	c.Option.CheckXrsf = false
+}
+func (c *MainAction) Parse() error {
+	if c.Method() == "GET" {
+		return c.Write(page)
+	} else if c.Method() == "POST" {
+		var user User
+		err := c.MapForm(&user, "")
+		if err != nil {
+			return err
+		}
+		return c.Write("%v", user)
+	}
+	return nil
+}
+```
+
+如果在提交的表单中有一个key为name的键值对，则对应的value就会自动赋值到Name这个filed中，这种命名也可以通过`.`来进行传递。如：上述代码中的User结构体可以通过user.id的key来对期成员赋值。
 
 # 模板
 
+## 附加模板函数
 默认采用Go语言自带的模版，同时提供了一些额外的便利方法：
 
 * `IsNil(a interface{}) bool`
@@ -142,6 +201,20 @@ type HomeAction struct {
 
 * `XsrfValue() string`
 自动生成的防xsrf随机值
+
+* `session(key string) interface{}`
+获取session的值
+
+* `cookie(key string) interface{}`
+获取cookie的指
+
+## 相关函数
+
+* AddTmplVar
+在action中添加模板变量或者函数
+
+* AddTmplVars
+* 在action中添加多个模板变量或者函数
 
 # Action
 
