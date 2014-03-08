@@ -536,15 +536,17 @@ func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) 
 			} else {
 				resp = nil
 				var content string
-				content = fmt.Sprintln("Handler crashed with error", e)
+				content = fmt.Sprintf("Handler crashed with error: %v", e)
 				for i := 1; ; i += 1 {
 					_, file, line, ok := runtime.Caller(i)
 					if !ok {
 						break
+					} else {
+						content += "\n"
 					}
-					content += fmt.Sprintln(file, line)
+					content += fmt.Sprintf("%v %v", file, line)
 				}
-				a.Logger.Print(content)
+				a.Error(content)
 				err = errors.New(content)
 				return
 			}
@@ -616,6 +618,9 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 		}
 
 		if topName != "" {
+			if !strings.HasPrefix(k, topName) {
+				continue
+			}
 			k = k[len(topName)+1:]
 		}
 
@@ -630,6 +635,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 					break
 				}
 
+				fmt.Println(name)
 				value = value.FieldByName(name)
 				if !value.IsValid() {
 					a.Warn("(%v value is not valid %v)", name, value.Interface())
@@ -649,11 +655,10 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 			} else {
 				tv := value.FieldByName(name)
 				if !tv.IsValid() {
-					a.Warn("struct %v has no field named %v", value, name)
 					break
 				}
 				if !tv.CanSet() {
-					a.Warn("can not set %v", k)
+					a.Warn("can not set %v to %v", k, tv)
 					break
 				}
 
@@ -728,7 +733,6 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 				case reflect.Ptr:
 					a.Warn("can not set an ptr of ptr")
 				case reflect.Slice, reflect.Array:
-					// TODO: currently only support []string, need to
 					tt := tv.Type().Elem()
 					tk := tt.Kind()
 					if tk == reflect.String {

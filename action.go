@@ -386,7 +386,7 @@ func (c *Action) MapForm(st interface{}, names ...string) error {
 	v := reflect.ValueOf(st)
 	var name string
 	if len(names) == 0 {
-		name = UnTitle(v.Type().Name())
+		name = UnTitle(v.Type().Elem().Name())
 	} else {
 		name = names[0]
 	}
