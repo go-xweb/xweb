@@ -255,3 +255,11 @@ func (s *Server) SetTemplateDir(path string) {
 func (s *Server) SetStaticDir(path string) {
 	s.RootApp.SetStaticDir(path)
 }
+
+func (s *Server) App(name string) *App {
+	path, ok:= s.AppName[name]
+	if ok {
+		return s.Apps[path]
+	}
+	return nil
+}

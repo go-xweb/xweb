@@ -158,6 +158,14 @@ func RootApp() *App {
 	return mainServer.RootApp
 }
 
+func Serv(name string) *Server {
+	server, ok := Servers[name]
+	if ok {
+		return server
+	}
+	return nil
+}
+
 // Config is the configuration of the main server.
 var (
 	Config *ServerConfig = &ServerConfig{
