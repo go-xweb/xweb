@@ -317,7 +317,7 @@ func (c *Action) WriteBytes(bytes []byte) error {
 	//_, err := c.ResponseWriter.Write(bytes)
 	err := c.SetBody(bytes) //[SWH|+]
 	if err != nil {
-		c.App.Server.Logger.Println("Error during write: ", err)
+		c.App.Error("Error during write: ", err)
 	}
 	return err
 }
@@ -329,7 +329,7 @@ func (c *Action) Write(content string, values ...interface{}) error {
 	//_, err := c.ResponseWriter.Write([]byte(content))
 	err := c.SetBody([]byte(content)) //[SWH|+]
 	if err != nil {
-		c.App.Server.Logger.Println("Error during write: ", err)
+		c.App.Error("Error during write: ", err)
 	}
 	return err
 }
@@ -436,7 +436,7 @@ func getCookieSig(key string, val []byte, timestamp string) string {
 func (c *Action) SetSecureCookie(name string, val string, age int64) {
 	//base64 encode the val
 	if len(c.App.AppConfig.CookieSecret) == 0 {
-		c.App.Server.Logger.Println("Secret Key for secure cookies has not been set. Please assign a cookie secret to web.Config.CookieSecret.")
+		c.App.Error("Secret Key for secure cookies has not been set. Please assign a cookie secret to web.Config.CookieSecret.")
 		return
 	}
 	var buf bytes.Buffer

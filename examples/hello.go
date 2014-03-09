@@ -15,6 +15,7 @@ func (c *MainAction) Hello(world string) {
 }
 
 func main() {
+	xweb.RootApp().AppConfig.SessionOn = false
 	xweb.AddRouter("/", &MainAction{})
 	xweb.Run("0.0.0.0:9999")
 }

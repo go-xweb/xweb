@@ -52,7 +52,7 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 							self.mutex.Lock()
 							self.Caches[url] = ver
 							self.mutex.Unlock()
-							self.app.Logger.Printf("static file %s is created.\n", url)
+							self.app.Info("static file %s is created.", url)
 						}
 					}
 				} else if ev.IsDelete() {
@@ -63,7 +63,7 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 						self.mutex.Lock()
 						delete(self.Caches, pa)
 						self.mutex.Unlock()
-						self.app.Logger.Printf("static file %s is deleted.\n", pa)
+						self.app.Info("static file %s is deleted.", pa)
 					}
 				} else if ev.IsModify() {
 					if d.IsDir() {
@@ -74,7 +74,7 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 							self.mutex.Lock()
 							self.Caches[url] = ver
 							self.mutex.Unlock()
-							self.app.Logger.Printf("static file %s is reloaded.\n", url)
+							self.app.Info("static file %s is reloaded.", url)
 						}
 					}
 				} else if ev.IsRename() {
@@ -85,11 +85,11 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 						self.mutex.Lock()
 						delete(self.Caches, url)
 						self.mutex.Unlock()
-						self.app.Logger.Printf("static file %s is deleted.\n", url)
+						self.app.Info("static file %s is deleted.\n", url)
 					}
 				}
 			case err := <-watcher.Error:
-				fmt.Println("error:", err)
+				self.app.Error("error: %v", err)
 			}
 		}
 	}()

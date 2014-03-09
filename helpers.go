@@ -6,8 +6,10 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -148,4 +150,32 @@ func removeStick(uri string) string {
 		uri = "/"
 	}
 	return uri
+}
+
+var (
+	fieldCache      = make(map[reflect.Type]map[string]int)
+	fieldCacheMutex sync.RWMutex
+)
+
+// this method cache fields' index to field name
+func fieldByName(v reflect.Value, name string) reflect.Value {
+	t := v.Type()
+	fieldCacheMutex.RLock()
+	cache, ok := fieldCache[t]
+	fieldCacheMutex.RUnlock()
+	if !ok {
+		cache = make(map[string]int)
+		for i := 0; i < v.NumField(); i++ {
+			cache[t.Field(i).Name] = i
+		}
+		fieldCacheMutex.Lock()
+		fieldCache[t] = cache
+		fieldCacheMutex.Unlock()
+	}
+
+	if i, ok := cache[name]; ok {
+		return v.Field(i)
+	}
+
+	return reflect.Zero(t)
 }
