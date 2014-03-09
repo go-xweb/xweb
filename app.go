@@ -417,9 +417,9 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		//[SWH|+]------------------------------------------Before-Hook
 		structName := reflect.ValueOf(route.HandlerElement.Name())
 		actionName := reflect.ValueOf(route.HandlerMethod)
-		structAction := []reflect.Value{structName, actionName}
 		initM = vc.MethodByName("Before")
 		if initM.IsValid() {
+			structAction := []reflect.Value{structName, actionName}
 			if ok := initM.Call(structAction); !ok[0].Bool() {
 				return
 			}
@@ -442,8 +442,14 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		//[SWH|+]------------------------------------------After-Hook
 		initM = vc.MethodByName("After")
 		if initM.IsValid() {
-			actionResult := reflect.ValueOf(ret)
-			structAction = []reflect.Value{structName, actionName, actionResult}
+			structAction := []reflect.Value{structName, actionName}
+			for _, v := range ret {
+				structAction = append(structAction, v)
+			}
+			if len(structAction) != initM.Type().NumIn() {
+				a.Error("Error : %v.After(): The number of params is not adapted.", structName)
+				return
+			}
 			if ok := initM.Call(structAction); !ok[0].Bool() {
 				return
 			}
@@ -456,7 +462,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		sval := ret[0]
 
 		var content []byte
-		if sval.Interface() == nil {
+		if sval.Interface() == nil || sval.Kind() == reflect.Bool {
 			return
 		} else if sval.Kind() == reflect.String {
 			content = []byte(sval.String())
