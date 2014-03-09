@@ -115,6 +115,7 @@ func (a *App) initApp() {
 	}
 	a.FuncMaps["StaticUrl"] = a.StaticUrl
 	a.FuncMaps["XsrfName"] = XsrfName
+	a.VarMaps["XwebVer"] = Version
 
 	if a.AppConfig.SessionOn {
 		a.SessionManager = httpsession.Default()
@@ -378,8 +379,8 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			c.T[k] = v
 		}
 
-		//fieldA := vc.Elem().FieldByName("Action")
-		fieldA := fieldByName(vc.Elem(), "Action")
+		fieldA := vc.Elem().FieldByName("Action")
+		//fieldA := fieldByName(vc.Elem(), "Action")
 		if fieldA.IsValid() {
 			fieldA.Set(reflect.ValueOf(c))
 		}
