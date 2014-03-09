@@ -146,6 +146,57 @@ func Html(raw string) template.HTML {
 	return template.HTML(raw)
 }
 
+//Usage:UrlFor("main:root:/user/login") or UrlFor("root:/user/login") or UrlFor("/user/login") or UrlFor()
+func UrlFor(args ...string) string {
+	s := [3]string{"main", "root", ""}
+	var u []string
+	size := len(args)
+	if size > 0 {
+		u = strings.Split(args[0], ":")
+	} else {
+		u = []string{""}
+	}
+	var appUrl string = ""
+	switch len(u) {
+	case 1:
+		s[2] = u[0]
+	case 2:
+		s[1] = u[0]
+		s[2] = u[1]
+	default:
+		s[0] = u[0]
+		s[1] = u[1]
+		s[2] = u[2]
+	}
+	var url, prefix, suffix string
+	if server, ok := Servers[s[0]]; ok {
+		url += server.Config.Url
+		prefix = server.Config.UrlPrefix
+		suffix = server.Config.UrlSuffix
+		if appPath, ok := server.AppName[s[1]]; ok {
+			appUrl = appPath
+		}
+	}
+	url = strings.TrimRight(url, "/") + "/"
+	if size == 0 {
+		return url
+	}
+	if appUrl != "/" {
+		appUrl = strings.TrimLeft(appUrl, "/")
+		if appUrl[len(appUrl)-1:] != "/" {
+			appUrl = appUrl + "/"
+		}
+	} else {
+		appUrl = ""
+	}
+	url += prefix + appUrl
+	if s[2] == "" {
+		return url
+	}
+	url += strings.TrimLeft(s[2], "/") + suffix
+	return url
+}
+
 var (
 	defaultFuncs template.FuncMap = template.FuncMap{
 		"Now":        Now,
@@ -155,6 +206,7 @@ var (
 		"Add":        Add,
 		"Subtract":   Subtract,
 		"IsNil":      IsNil,
+		"UrlFor":     UrlFor,
 	}
 )
 

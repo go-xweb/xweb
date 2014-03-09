@@ -21,6 +21,9 @@ type ServerConfig struct {
 	Profiler               bool
 	EnableGzip             bool
 	StaticExtensionsToGzip []string
+	Url                    string
+	UrlPrefix              string
+	UrlSuffix              string
 }
 
 var ServerNumber uint = 0
@@ -257,7 +260,7 @@ func (s *Server) SetStaticDir(path string) {
 }
 
 func (s *Server) App(name string) *App {
-	path, ok:= s.AppName[name]
+	path, ok := s.AppName[name]
 	if ok {
 		return s.Apps[path]
 	}
