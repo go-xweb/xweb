@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	Version = "0.1.3"
+	Version = "0.2"
 )
 
 func redirect(w http.ResponseWriter, url string, status ...int) error {
