@@ -335,8 +335,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	}
 
 	reqPath := removeStick(requestPath)
-	for i, ln := 0, len(a.Routes); i < ln; i++ {
-		route := a.Routes[i]
+	for _, route := range a.Routes {
 		cr := route.CompiledRegexp
 
 		//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
@@ -376,14 +375,17 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			c.T[k] = v
 		}
 
-		fieldA := vc.Elem().FieldByName("Action")
+		//fieldA := vc.Elem().FieldByName("Action")
+		fieldA := fieldByName(vc.Elem(), "Action")
 		if fieldA.IsValid() {
 			fieldA.Set(reflect.ValueOf(c))
 		}
 
 		fieldC := vc.Elem().FieldByName("C")
+		//fieldC := fieldByName(vc.Elem(), "C")
 		if fieldC.IsValid() {
 			fieldC.Set(reflect.ValueOf(vc))
+			//fieldC.Set(vc)
 		}
 
 		initM := vc.MethodByName("Init")
