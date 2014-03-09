@@ -21,6 +21,9 @@ type ServerConfig struct {
 	Profiler               bool
 	EnableGzip             bool
 	StaticExtensionsToGzip []string
+	Url                    string
+	UrlPrefix              string
+	UrlSuffix              string
 }
 
 var ServerNumber uint = 0
@@ -130,6 +133,7 @@ func (s *Server) ServeHTTP(c http.ResponseWriter, req *http.Request) {
 // Process invokes the routing system for server s
 // non-root app's route will override root app's if there is same path
 func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
+	_, _ = XHook.Call("BeforeProcess", s, w, req) //[SWH|+]call hook
 	for _, app := range s.Apps {
 		if app != s.RootApp && strings.HasPrefix(req.URL.Path, app.BasePath) {
 			app.routeHandler(req, w)
@@ -137,6 +141,7 @@ func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	s.RootApp.routeHandler(req, w)
+	_, _ = XHook.Call("AfterProcess", s, w, req) //[SWH|+]call hook
 }
 
 // Run starts the web application and serves HTTP requests for s
@@ -254,4 +259,12 @@ func (s *Server) SetTemplateDir(path string) {
 
 func (s *Server) SetStaticDir(path string) {
 	s.RootApp.SetStaticDir(path)
+}
+
+func (s *Server) App(name string) *App {
+	path, ok := s.AppName[name]
+	if ok {
+		return s.Apps[path]
+	}
+	return nil
 }

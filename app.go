@@ -257,12 +257,13 @@ func (app *App) AddRouter(url string, c interface{}) {
 		if tagStr != "" {
 			tags := strings.Split(tagStr, " ")
 			path := tagStr
-			if len(tags) >= 2 {
+			length := len(tags)
+			if length >= 2 {
 				for _, method := range strings.Split(tags[0], "|") {
 					methods[strings.ToUpper(method)] = true
 				}
 				path = tags[1]
-			} else if len(tags) == 1 {
+			} else if length == 1 {
 				if strings.HasPrefix(tags[0], "/") {
 					path = tags[0]
 				} else {
@@ -333,6 +334,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		statusCode = 302
 		return
 	}
+	requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
 
 	reqPath := removeStick(requestPath)
 	for i, ln := 0, len(a.Routes); i < ln; i++ {
@@ -348,6 +350,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		if !cr.MatchString(reqPath) {
 			continue
 		}
+
 		match := cr.FindStringSubmatch(reqPath)
 
 		if len(match[0]) != len(reqPath) {
@@ -635,7 +638,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 					break
 				}
 
-				fmt.Println(name)
+				//fmt.Println(name)
 				value = value.FieldByName(name)
 				if !value.IsValid() {
 					a.Warn("(%v value is not valid %v)", name, value.Interface())
@@ -798,4 +801,16 @@ func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status 
 		return err
 	}
 	return nil
+}
+
+func (app *App) Nodes() (r map[string][]string) {
+	r = make(map[string][]string)
+	for _, v := range app.Routes {
+		name := v.HandlerElement.Name()
+		if _, ok := r[name]; !ok {
+			r[name] = make([]string, 0)
+		}
+		r[name] = append(r[name], v.HandlerMethod)
+	}
+	return
 }
