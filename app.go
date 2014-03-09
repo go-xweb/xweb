@@ -335,6 +335,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		return
 	}
 	requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
+
 	reqPath := removeStick(requestPath)
 	for i, ln := 0, len(a.Routes); i < ln; i++ {
 		route := a.Routes[i]
@@ -349,6 +350,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		if !cr.MatchString(reqPath) {
 			continue
 		}
+
 		match := cr.FindStringSubmatch(reqPath)
 
 		if len(match[0]) != len(reqPath) {
