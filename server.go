@@ -9,6 +9,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"runtime"
+	runtimePprof "runtime/pprof"
 	"strconv"
 	"strings"
 )
@@ -155,10 +156,29 @@ func (s *Server) Run(addr string) {
 	mux := http.NewServeMux()
 	if s.Config.Profiler {
 		mux.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+		mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+		mux.Handle("/debug/pprof/block", pprof.Handler("block"))
+		mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+		mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+
 		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-		mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+
+		mux.Handle("/debug/pprof/startcpuprof", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			StartCPUProfile()
+		}))
+		mux.Handle("/debug/pprof/stopcpuprof", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			StopCPUProfile()
+		}))
+		mux.Handle("/debug/pprof/memprof", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			runtime.GC()
+			runtimePprof.WriteHeapProfile(rw)
+		}))
+		mux.Handle("/debug/pprof/gc", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			PrintGCSummary(rw)
+		}))
+
 	}
 	//[SWH|+]call hook
 	if c, err := XHook.Call("MuxHandle", mux); err == nil {
