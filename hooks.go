@@ -96,7 +96,20 @@ func (f *HookEngine) String(c reflect.Value) string {
 
 func NewHookEngine(size int) *HookEngine {
 	h := &HookEngine{Hooks: make(map[string]Hook, size), Index: make(map[string]uint, size)}
+
+	//func(mux *http.ServeMux) *http.ServeMux
 	h.Hooks["MuxHandle"] = make(Hook, 0)
+
+	//func(serv *Server, w http.ResponseWriter, req *http.Request)
+	h.Hooks["BeforeProcess"] = make(Hook, 0)
+
+	//func(serv *Server, w http.ResponseWriter, req *http.Request)
+	h.Hooks["AfterProcess"] = make(Hook, 0)
+
+	//func(content string, action *Action) string
 	h.Hooks["BeforeRender"] = make(Hook, 0)
+
+	//func(content []byte, action *Action) []byte
+	h.Hooks["AfterRender"] = make(Hook, 0)
 	return h
 }

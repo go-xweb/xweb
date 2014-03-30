@@ -25,6 +25,7 @@ type ServerConfig struct {
 	Url                    string
 	UrlPrefix              string
 	UrlSuffix              string
+	StaticHtmlDir          string
 }
 
 var ServerNumber uint = 0
@@ -135,6 +136,15 @@ func (s *Server) ServeHTTP(c http.ResponseWriter, req *http.Request) {
 // non-root app's route will override root app's if there is same path
 func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
 	_, _ = XHook.Call("BeforeProcess", s, w, req) //[SWH|+]call hook
+	if s.Config.UrlSuffix != "" && strings.HasSuffix(req.URL.Path, s.Config.UrlSuffix) {
+		req.URL.Path = strings.TrimSuffix(req.URL.Path, s.Config.UrlSuffix)
+	}
+	if s.Config.UrlPrefix != "" && strings.HasPrefix(req.URL.Path, "/"+s.Config.UrlPrefix) {
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/"+s.Config.UrlPrefix)
+	}
+	if req.URL.Path[0] != '/' {
+		req.URL.Path = "/" + req.URL.Path
+	}
 	for _, app := range s.Apps {
 		if app != s.RootApp && strings.HasPrefix(req.URL.Path, app.BasePath) {
 			app.routeHandler(req, w)

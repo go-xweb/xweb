@@ -316,7 +316,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	// static files, needed op
 	if req.Method == "GET" || req.Method == "HEAD" {
-		success := a.tryServingFile(requestPath, req, w)
+		success := a.TryServingFile(requestPath, req, w)
 		if success {
 			statusCode = 200
 			return
@@ -428,7 +428,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			}
 		}
 
-		ret, err := a.safelyCall(vc, route.HandlerMethod, args)
+		ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
 		if err != nil {
 			a.error(w, 500, fmt.Sprintf("handler error: %v", err))
 			//there was an error or panic while calling the handler
@@ -495,10 +495,10 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	// try serving index.html or index.htm
 	if req.Method == "GET" || req.Method == "HEAD" {
-		if a.tryServingFile(path.Join(requestPath, "index.html"), req, w) {
+		if a.TryServingFile(path.Join(requestPath, "index.html"), req, w) {
 			statusCode = 200
 			return
-		} else if a.tryServingFile(path.Join(requestPath, "index.htm"), req, w) {
+		} else if a.TryServingFile(path.Join(requestPath, "index.htm"), req, w) {
 			statusCode = 200
 			return
 		}
@@ -539,7 +539,7 @@ func (a *App) StaticUrl(url string) string {
 }
 
 // safelyCall invokes `function` in recover block
-func (a *App) safelyCall(vc reflect.Value, method string, args []reflect.Value) (resp []reflect.Value, err error) {
+func (a *App) SafelyCall(vc reflect.Value, method string, args []reflect.Value) (resp []reflect.Value, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			if !a.Server.Config.RecoverPanic {
@@ -581,8 +581,11 @@ func (a *App) InitHeadContent(w http.ResponseWriter, contentLength int64) {
 
 // tryServingFile attempts to serve a static file, and returns
 // whether or not the operation is successful.
-func (a *App) tryServingFile(name string, req *http.Request, w http.ResponseWriter) bool {
-	newPath := name[len(a.BasePath):]
+func (a *App) TryServingFile(name string, req *http.Request, w http.ResponseWriter) bool {
+	newPath := name
+	if strings.HasPrefix(name, a.BasePath) {
+		newPath = name[len(a.BasePath):]
+	}
 	staticFile := path.Join(a.AppConfig.StaticDir, newPath)
 	finfo, err := os.Stat(staticFile)
 	if err != nil {
