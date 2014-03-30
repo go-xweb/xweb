@@ -135,7 +135,11 @@ func (s *Server) ServeHTTP(c http.ResponseWriter, req *http.Request) {
 // Process invokes the routing system for server s
 // non-root app's route will override root app's if there is same path
 func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
-	_, _ = XHook.Call("BeforeProcess", s, w, req) //[SWH|+]call hook
+	var result bool = true
+	_, _ = XHook.Call("BeforeProcess", &result, s, w, req) //[SWH|+]call hook
+	if !result {
+		return
+	}
 	if s.Config.UrlSuffix != "" && strings.HasSuffix(req.URL.Path, s.Config.UrlSuffix) {
 		req.URL.Path = strings.TrimSuffix(req.URL.Path, s.Config.UrlSuffix)
 	}
@@ -152,7 +156,7 @@ func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	s.RootApp.routeHandler(req, w)
-	_, _ = XHook.Call("AfterProcess", s, w, req) //[SWH|+]call hook
+	_, _ = XHook.Call("AfterProcess", &result, s, w, req) //[SWH|+]call hook
 }
 
 // Run starts the web application and serves HTTP requests for s

@@ -100,10 +100,10 @@ func NewHookEngine(size int) *HookEngine {
 	//func(mux *http.ServeMux) *http.ServeMux
 	h.Hooks["MuxHandle"] = make(Hook, 0)
 
-	//func(serv *Server, w http.ResponseWriter, req *http.Request)
+	//func(result *bool, serv *Server, w http.ResponseWriter, req *http.Request) *bool
 	h.Hooks["BeforeProcess"] = make(Hook, 0)
 
-	//func(serv *Server, w http.ResponseWriter, req *http.Request)
+	//func(result *bool, serv *Server, w http.ResponseWriter, req *http.Request) *bool
 	h.Hooks["AfterProcess"] = make(Hook, 0)
 
 	//func(content string, action *Action) string
