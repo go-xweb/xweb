@@ -9,6 +9,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"runtime"
+	runtimePprof "runtime/pprof"
 	"strconv"
 	"strings"
 )
@@ -24,6 +25,7 @@ type ServerConfig struct {
 	Url                    string
 	UrlPrefix              string
 	UrlSuffix              string
+	StaticHtmlDir          string
 }
 
 var ServerNumber uint = 0
@@ -133,7 +135,20 @@ func (s *Server) ServeHTTP(c http.ResponseWriter, req *http.Request) {
 // Process invokes the routing system for server s
 // non-root app's route will override root app's if there is same path
 func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
-	_, _ = XHook.Call("BeforeProcess", s, w, req) //[SWH|+]call hook
+	var result bool = true
+	_, _ = XHook.Call("BeforeProcess", &result, s, w, req) //[SWH|+]call hook
+	if !result {
+		return
+	}
+	if s.Config.UrlSuffix != "" && strings.HasSuffix(req.URL.Path, s.Config.UrlSuffix) {
+		req.URL.Path = strings.TrimSuffix(req.URL.Path, s.Config.UrlSuffix)
+	}
+	if s.Config.UrlPrefix != "" && strings.HasPrefix(req.URL.Path, "/"+s.Config.UrlPrefix) {
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/"+s.Config.UrlPrefix)
+	}
+	if req.URL.Path[0] != '/' {
+		req.URL.Path = "/" + req.URL.Path
+	}
 	for _, app := range s.Apps {
 		if app != s.RootApp && strings.HasPrefix(req.URL.Path, app.BasePath) {
 			app.routeHandler(req, w)
@@ -141,7 +156,7 @@ func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	s.RootApp.routeHandler(req, w)
-	_, _ = XHook.Call("AfterProcess", s, w, req) //[SWH|+]call hook
+	_, _ = XHook.Call("AfterProcess", &result, s, w, req) //[SWH|+]call hook
 }
 
 // Run starts the web application and serves HTTP requests for s
@@ -155,10 +170,29 @@ func (s *Server) Run(addr string) {
 	mux := http.NewServeMux()
 	if s.Config.Profiler {
 		mux.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+		mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+		mux.Handle("/debug/pprof/block", pprof.Handler("block"))
+		mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+		mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+
 		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-		mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+
+		mux.Handle("/debug/pprof/startcpuprof", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			StartCPUProfile()
+		}))
+		mux.Handle("/debug/pprof/stopcpuprof", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			StopCPUProfile()
+		}))
+		mux.Handle("/debug/pprof/memprof", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			runtime.GC()
+			runtimePprof.WriteHeapProfile(rw)
+		}))
+		mux.Handle("/debug/pprof/gc", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			PrintGCSummary(rw)
+		}))
+
 	}
 	//[SWH|+]call hook
 	if c, err := XHook.Call("MuxHandle", mux); err == nil {

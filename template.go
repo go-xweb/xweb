@@ -183,7 +183,7 @@ func UrlFor(args ...string) string {
 	}
 	if appUrl != "/" {
 		appUrl = strings.TrimLeft(appUrl, "/")
-		if appUrl[len(appUrl)-1:] != "/" {
+		if length := len(appUrl); length > 0 && appUrl[length-1] != '/' {
 			appUrl = appUrl + "/"
 		}
 	} else {
