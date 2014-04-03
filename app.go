@@ -528,14 +528,20 @@ func (a *App) error(w http.ResponseWriter, status int, content string) error {
 }
 
 func (a *App) StaticUrl(url string) string {
+	var basePath string
+	if a.AppConfig.StaticDir == RootApp().AppConfig.StaticDir {
+		basePath = RootApp().BasePath
+	} else {
+		basePath = a.BasePath
+	}
 	if !a.AppConfig.StaticFileVersion {
-		return a.BasePath + url
+		return basePath + url
 	}
 	ver := a.StaticVerMgr.GetVersion(url)
 	if ver == "" {
-		return a.BasePath + url
+		return basePath + url
 	}
-	return a.BasePath + url + "?v=" + ver
+	return basePath + url + "?v=" + ver
 }
 
 // safelyCall invokes `function` in recover block
