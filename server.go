@@ -120,6 +120,7 @@ func (s *Server) error(w http.ResponseWriter, status int, content string) error 
 func (s *Server) initServer() {
 	if s.Config == nil {
 		s.Config = &ServerConfig{}
+		s.Config.Profiler = true
 	}
 
 	for _, app := range s.Apps {
