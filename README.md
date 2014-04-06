@@ -1,6 +1,6 @@
 # xweb
 
-xweb是一个基于web.go开发的web框架，目前它和Java框架Struts有些类似。
+xweb是一个强大的Go语言web框架。
 
 [English](https://github.com/lunny/xweb/blob/master/README_EN.md)
 
@@ -19,10 +19,10 @@ QQ群：369240307
 
 ## 特性
 
-* 在一个可执行程序中多Server，多App的支持
+* 在一个可执行程序中多Server(http,tls,scgi,fcgi)，多App的支持
 * 简单好用的路由映射方式
 * 静态文件及版本支持，并支持自动加载，默认开启
-* 改进的模版支持，并支持自动加载，默认开启
+* 改进的模版支持，并支持自动加载，动态新增模板函数
 * session支持
 * validation支持
 

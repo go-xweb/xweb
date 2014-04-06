@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 
@@ -130,7 +129,9 @@ func (self *StaticVerMgr) Init(app *App, staticPath string) error {
 
 func (self *StaticVerMgr) getFileVer(url string) string {
 	//content, err := ioutil.ReadFile(path.Join(self.Path, url))
-	f, err := os.Open(path.Join(self.Path, url))
+	fPath := filepath.Join(self.Path, url)
+	self.app.Debug("Loaded static %s", fPath)
+	f, err := os.Open(fPath)
 	if err != nil {
 		return ""
 	}

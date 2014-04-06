@@ -659,7 +659,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 				//fmt.Println(name)
 				value = value.FieldByName(name)
 				if !value.IsValid() {
-					a.Warn("(%v value is not valid %v)", name, value.Interface())
+					a.Warn("(%v value is not valid %v)", name, value)
 					break
 				}
 				if !value.CanSet() {

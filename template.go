@@ -1,7 +1,6 @@
 package xweb
 
 import (
-	"fmt"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -248,9 +247,10 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 						tmpl := ev.Name[len(self.RootDir)+1:]
 						content, err := ioutil.ReadFile(ev.Name)
 						if err != nil {
+							self.app.Error("loaded template %v failed: %v", tmpl, err)
 							break
 						}
-
+						self.app.Info("loaded template file %v success", tmpl)
 						self.CacheTemplate(tmpl, content)
 					}
 				} else if ev.IsDelete() {
@@ -295,7 +295,7 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 	})
 
 	if err != nil {
-		fmt.Println(err)
+		self.app.Error(err.Error())
 		return err
 	}
 
@@ -315,10 +315,13 @@ func (self *TemplateMgr) CacheAll(rootDir string) error {
 		tmpl := f[len(rootDir)+1:]
 		tmpl = strings.Replace(tmpl, "\\", "/", -1) //[SWH|+]fix windows env
 		if _, ok := self.Ignores[filepath.Base(tmpl)]; !ok {
-			content, err := ioutil.ReadFile(path.Join(self.RootDir, tmpl))
+			fpath := filepath.Join(self.RootDir, tmpl)
+			content, err := ioutil.ReadFile(fpath)
 			if err != nil {
+				self.app.Debug("Load template %s error: %v", fpath, err)
 				return err
 			}
+			self.app.Debug("Loaded template %s", fpath)
 			self.Caches[tmpl] = content
 		}
 		return nil

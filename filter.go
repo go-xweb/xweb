@@ -18,15 +18,16 @@ type LoginFilter struct {
 }
 
 func NewLoginFilter(app *App, name string, redirect string) *LoginFilter {
-	return &LoginFilter{App: app, SessionName: name,
+	filter := &LoginFilter{App: app, SessionName: name,
 		AnonymousUrls: make([]*regexp.Regexp, 0),
 		AskLoginUrls:  make([]*regexp.Regexp, 0),
 		Redirect:      redirect,
 	}
+	filter.AddAnonymousUrls("/favicon.ico", redirect)
+	return filter
 }
 
 func (s *LoginFilter) AddAnonymousUrls(urls ...string) {
-	urls = append(urls, "/favicon.ico")
 	for _, r := range urls {
 		cr, err := regexp.Compile(r)
 		if err == nil {

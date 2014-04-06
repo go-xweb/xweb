@@ -81,6 +81,21 @@ func Run(addr string) {
 	mainServer.Run(addr)
 }
 
+func SimpleTLSConfig(certFile, keyFile string) (*tls.Config, error) {
+	config := &tls.Config{}
+	if config.NextProtos == nil {
+		config.NextProtos = []string{"http/1.1"}
+	}
+
+	var err error
+	config.Certificates = make([]tls.Certificate, 1)
+	config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
 // RunTLS starts the web application and serves HTTPS requests for the main server.
 func RunTLS(addr string, config *tls.Config) {
 	mainServer.RunTLS(addr, config)
