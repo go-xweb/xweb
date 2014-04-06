@@ -562,7 +562,7 @@ func (c *Action) Critical(format string, params ...interface{}) {
 // Include method provide to template for {{include "xx.tmpl"}}
 func (c *Action) Include(tmplName string) interface{} {
 	t := c.RootTemplate.New(tmplName)
-	t.Funcs(c.getFuncs())
+	t.Funcs(c.GetFuncs())
 
 	content, err := c.getTemplate(tmplName)
 	if err != nil {
@@ -609,7 +609,7 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 	}
 
 	c.RootTemplate = template.New(name)
-	c.RootTemplate.Funcs(c.getFuncs())
+	c.RootTemplate.Funcs(c.GetFuncs())
 
 	//[SWH|+]call hook
 	if r, err := XHook.Call("BeforeRender", content, c); err == nil {
@@ -657,7 +657,7 @@ func (c *Action) Render(tmpl string, params ...*T) error {
 	return err
 }
 
-func (c *Action) getFuncs() template.FuncMap {
+func (c *Action) GetFuncs() template.FuncMap {
 	funcs := c.App.FuncMaps
 	if c.f != nil {
 		for k, v := range c.f {
