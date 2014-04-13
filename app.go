@@ -62,6 +62,14 @@ type AppConfig struct {
 	SessionTimeout    int64
 	FormMapToStruct   bool //[SWH|+]
 	EnableHttpCache   bool //[SWH|+]
+
+	//[SWH|+] On/Off Log
+	EnableTraceLog    bool
+	EnableDebugLog    bool
+	EnableInfoLog     bool
+	EnableWarnLog     bool
+	EnableErrorLog    bool
+	EnableCriticalLog bool
 }
 
 type Route struct {
@@ -95,6 +103,13 @@ func NewApp(args ...string) *App {
 			ReloadTemplates:   true,
 			CheckXrsf:         true,
 			FormMapToStruct:   true,
+
+			EnableTraceLog:    true,
+			EnableDebugLog:    true,
+			EnableInfoLog:     true,
+			EnableWarnLog:     true,
+			EnableErrorLog:    true,
+			EnableCriticalLog: true,
 		},
 		Config:       map[string]interface{}{},
 		Actions:      map[reflect.Type]string{},
@@ -191,27 +206,39 @@ func (app *App) log(color int, format string, params ...interface{}) {
 }
 
 func (app *App) Trace(format string, params ...interface{}) {
-	app.log(ForeCyan, format, params...)
+	if app.AppConfig.EnableTraceLog {
+		app.log(ForeCyan, "[Trace] "+format, params...)
+	}
 }
 
 func (app *App) Debug(format string, params ...interface{}) {
-	app.log(ForeBlue, format, params...)
+	if app.AppConfig.EnableDebugLog {
+		app.log(ForeBlue, "[Debug] "+format, params...)
+	}
 }
 
 func (app *App) Info(format string, params ...interface{}) {
-	app.log(ForeGreen, format, params...)
+	if app.AppConfig.EnableInfoLog {
+		app.log(ForeGreen, "[Info] "+format, params...)
+	}
 }
 
 func (app *App) Warn(format string, params ...interface{}) {
-	app.log(ForeYellow, format, params...)
+	if app.AppConfig.EnableWarnLog {
+		app.log(ForeYellow, "[Warn] "+format, params...)
+	}
 }
 
 func (app *App) Error(format string, params ...interface{}) {
-	app.log(ForeRed, format, params...)
+	if app.AppConfig.EnableErrorLog {
+		app.log(ForeRed, "[Error] "+format, params...)
+	}
 }
 
 func (app *App) Critical(format string, params ...interface{}) {
-	app.log(ForePurple, format, params...)
+	if app.AppConfig.EnableCriticalLog {
+		app.log(ForePurple, "[Critical] "+format, params...)
+	}
 }
 
 func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
