@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/lunny/httpsession"
+	"github.com/go-xweb/httpsession"
 )
 
 type ActionOption struct {
