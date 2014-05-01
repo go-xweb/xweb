@@ -145,6 +145,10 @@ func Html(raw string) template.HTML {
 	return template.HTML(raw)
 }
 
+func Js(raw string) template.JS {
+	return template.JS(raw)
+}
+
 //Usage:UrlFor("main:root:/user/login") or UrlFor("root:/user/login") or UrlFor("/user/login") or UrlFor()
 func UrlFor(args ...string) string {
 	s := [3]string{"main", "root", ""}
@@ -206,6 +210,7 @@ var (
 		"Subtract":   Subtract,
 		"IsNil":      IsNil,
 		"UrlFor":     UrlFor,
+		"Js":         Js,
 	}
 )
 
