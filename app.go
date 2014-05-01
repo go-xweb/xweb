@@ -302,15 +302,13 @@ func (app *App) AddRouter(url string, c interface{}) {
 					methods[strings.ToUpper(method)] = true
 				}
 				path = tags[1]
-				if path[0] == '=' {
-					path = path[1:]
+				if regexp.QuoteMeta(path) == path {
 					isEq = true
 				}
 			} else if length == 1 {
-				if tags[0][0] == '/' || tags[0][0] == '=' {
+				if tags[0][0] == '/' {
 					path = tags[0]
-					if path[0] == '=' {
-						path = path[1:]
+					if regexp.QuoteMeta(path) == path {
 						isEq = true
 					}
 				} else {
