@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lunny/httpsession"
+	"github.com/go-xweb/httpsession"
 )
 
 const (
@@ -27,6 +27,7 @@ type App struct {
 	BasePath        string
 	Name            string //[SWH|+]
 	Routes          []Route
+	RoutesEq        map[string]map[string]Route
 	filters         []Filter
 	Server          *Server
 	AppConfig       *AppConfig
@@ -91,6 +92,7 @@ func NewApp(args ...string) *App {
 	return &App{
 		BasePath: path,
 		Name:     name, //[SWH|+]
+		RoutesEq: make(map[string]map[string]Route),
 		AppConfig: &AppConfig{
 			Mode:              Product,
 			StaticDir:         "static",
@@ -256,8 +258,16 @@ func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handle
 		a.Error("Error in route regex %q: %s", r, err)
 		return
 	}
-
 	a.Routes = append(a.Routes, Route{Path: r, CompiledRegexp: cr, HttpMethods: methods, HandlerMethod: handler, HandlerElement: t})
+}
+
+func (a *App) addEqRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
+	if _, ok := a.RoutesEq[r]; !ok {
+		a.RoutesEq[r] = make(map[string]Route)
+	}
+	for v, _ := range methods {
+		a.RoutesEq[r][v] = Route{HandlerMethod: handler, HandlerElement: t}
+	}
 }
 
 var (
@@ -282,6 +292,7 @@ func (app *App) AddRouter(url string, c interface{}) {
 		tagStr := tag.Get("xweb")
 		methods := map[string]bool{"GET": true, "POST": true}
 		var p string
+		var isEq bool
 		if tagStr != "" {
 			tags := strings.Split(tagStr, " ")
 			path := tagStr
@@ -291,25 +302,38 @@ func (app *App) AddRouter(url string, c interface{}) {
 					methods[strings.ToUpper(method)] = true
 				}
 				path = tags[1]
+				if path[0] == '=' {
+					path = path[1:]
+					isEq = true
+				}
 			} else if length == 1 {
-				if strings.HasPrefix(tags[0], "/") {
+				if tags[0][0] == '/' || tags[0][0] == '=' {
 					path = tags[0]
+					if path[0] == '=' {
+						path = path[1:]
+						isEq = true
+					}
 				} else {
 					for _, method := range strings.Split(tags[0], "|") {
 						methods[strings.ToUpper(method)] = true
 					}
 					path = "/" + name
+					isEq = true
 				}
 			} else {
 				path = "/" + name
+				isEq = true
 			}
-
 			p = strings.TrimRight(url, "/") + path
 		} else {
 			p = strings.TrimRight(url, "/") + "/" + name
+			isEq = true
 		}
-
-		app.addRoute(removeStick(p), methods, t, a)
+		if isEq {
+			app.addEqRoute(removeStick(p), methods, t, a)
+		} else {
+			app.addRoute(removeStick(p), methods, t, a)
+		}
 	}
 }
 
@@ -365,161 +389,49 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
 
 	reqPath := removeStick(requestPath)
-	for _, route := range a.Routes {
-		cr := route.CompiledRegexp
-
-		//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
-		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
-		if _, ok := route.HttpMethods[allowMethod]; !ok {
-			continue
-		}
-
-		if !cr.MatchString(reqPath) {
-			continue
-		}
-
-		match := cr.FindStringSubmatch(reqPath)
-
-		if len(match[0]) != len(reqPath) {
-			continue
-		}
-
-		var args []reflect.Value
-		for _, arg := range match[1:] {
-			args = append(args, reflect.ValueOf(arg))
-		}
-
-		vc := reflect.New(route.HandlerElement)
-		c := &Action{
-			Request:        req,
-			App:            a,
-			ResponseWriter: w,
-			T:              T{},
-			f:              T{},
-			Option: &ActionOption{
-				AutoMapForm: a.AppConfig.FormMapToStruct,
-				CheckXrsf:   a.AppConfig.CheckXrsf,
-			},
-		}
-
-		for k, v := range a.VarMaps {
-			c.T[k] = v
-		}
-
-		fieldA := vc.Elem().FieldByName("Action")
-		//fieldA := fieldByName(vc.Elem(), "Action")
-		if fieldA.IsValid() {
-			fieldA.Set(reflect.ValueOf(c))
-		}
-
-		fieldC := vc.Elem().FieldByName("C")
-		//fieldC := fieldByName(vc.Elem(), "C")
-		if fieldC.IsValid() {
-			fieldC.Set(reflect.ValueOf(vc))
-			//fieldC.Set(vc)
-		}
-
-		initM := vc.MethodByName("Init")
-		if initM.IsValid() {
-			params := []reflect.Value{}
-			initM.Call(params)
-		}
-
-		if c.Option.AutoMapForm {
-			a.StructMap(vc.Elem(), req)
-		}
-
-		if c.Option.CheckXrsf && req.Method == "POST" {
-			res, err := req.Cookie(XSRF_TAG)
-			formVals := req.Form[XSRF_TAG]
-			var formVal string
-			if len(formVals) > 0 {
-				formVal = formVals[0]
-			}
-			if err != nil || res.Value == "" || res.Value != formVal {
-				a.error(w, 500, "xrsf token error.")
-				a.Error("xrsf token error.")
-				statusCode = 500
+	allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
+	isFind := false
+	if routes, ok := a.RoutesEq[reqPath]; ok {
+		if route, ok := routes[allowMethod]; ok {
+			var isBreak bool = false
+			var args []reflect.Value
+			isBreak, statusCode = a.run(req, w, route, args)
+			if isBreak {
 				return
 			}
-		}
-
-		//[SWH|+]------------------------------------------Before-Hook
-		structName := reflect.ValueOf(route.HandlerElement.Name())
-		actionName := reflect.ValueOf(route.HandlerMethod)
-		initM = vc.MethodByName("Before")
-		if initM.IsValid() {
-			structAction := []reflect.Value{structName, actionName}
-			if ok := initM.Call(structAction); !ok[0].Bool() {
-				return
-			}
-		}
-
-		ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
-		if err != nil {
-			a.error(w, 500, fmt.Sprintf("handler error: %v", err))
-			//there was an error or panic while calling the handler
-			if a.AppConfig.Mode == Debug {
-				a.error(w, 500, err.Error())
-			} else if a.AppConfig.Mode == Product {
-				a.error(w, 500, "Server Error")
-			}
-			statusCode = 500
-			return
-		}
-		statusCode = fieldA.Interface().(*Action).StatusCode
-
-		//[SWH|+]------------------------------------------After-Hook
-		initM = vc.MethodByName("After")
-		if initM.IsValid() {
-			structAction := []reflect.Value{structName, actionName}
-			for _, v := range ret {
-				structAction = append(structAction, v)
-			}
-			if len(structAction) != initM.Type().NumIn() {
-				a.Error("Error : %v.After(): The number of params is not adapted.", structName)
-				return
-			}
-			if ok := initM.Call(structAction); !ok[0].Bool() {
-				return
-			}
-		}
-
-		if len(ret) == 0 {
-			return
-		}
-
-		sval := ret[0]
-
-		var content []byte
-		if sval.Interface() == nil || sval.Kind() == reflect.Bool {
-			return
-		} else if sval.Kind() == reflect.String {
-			content = []byte(sval.String())
-		} else if sval.Kind() == reflect.Slice && sval.Type().Elem().Kind() == reflect.Uint8 {
-			content = sval.Interface().([]byte)
-		} else if err, ok := sval.Interface().(error); ok {
-			if err != nil {
-				a.Error("Error : %v", err)
-				a.error(w, 500, "Server Error")
-				statusCode = 500
-			}
-			return
-		} else {
-			a.Warn("unkonw returned result type %v, ignored %v", sval,
-				sval.Interface().(error))
-			return
-		}
-
-		w.Header().Set("Content-Length", strconv.Itoa(len(content)))
-		_, err = w.Write(content)
-		if err != nil {
-			a.Error("Error during write: %v", err)
-			statusCode = 500
-			return
+			isFind = true
 		}
 	}
+	if !isFind {
+		for _, route := range a.Routes {
+			cr := route.CompiledRegexp
 
+			//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
+			if _, ok := route.HttpMethods[allowMethod]; !ok {
+				continue
+			}
+
+			if !cr.MatchString(reqPath) {
+				continue
+			}
+
+			match := cr.FindStringSubmatch(reqPath)
+
+			if len(match[0]) != len(reqPath) {
+				continue
+			}
+
+			var args []reflect.Value
+			for _, arg := range match[1:] {
+				args = append(args, reflect.ValueOf(arg))
+			}
+			var isBreak bool = false
+			isBreak, statusCode = a.run(req, w, route, args)
+			if isBreak {
+				return
+			}
+		}
+	}
 	// try serving index.html or index.htm
 	if req.Method == "GET" || req.Method == "HEAD" {
 		if a.TryServingFile(path.Join(requestPath, "index.html"), req, w) {
@@ -533,6 +445,151 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	a.error(w, 404, "Page not found")
 	statusCode = 404
+}
+
+func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []reflect.Value) (isBreak bool, statusCode int) {
+
+	vc := reflect.New(route.HandlerElement)
+	c := &Action{
+		Request:        req,
+		App:            a,
+		ResponseWriter: w,
+		T:              T{},
+		f:              T{},
+		Option: &ActionOption{
+			AutoMapForm: a.AppConfig.FormMapToStruct,
+			CheckXrsf:   a.AppConfig.CheckXrsf,
+		},
+	}
+
+	for k, v := range a.VarMaps {
+		c.T[k] = v
+	}
+
+	fieldA := vc.Elem().FieldByName("Action")
+	//fieldA := fieldByName(vc.Elem(), "Action")
+	if fieldA.IsValid() {
+		fieldA.Set(reflect.ValueOf(c))
+	}
+
+	fieldC := vc.Elem().FieldByName("C")
+	//fieldC := fieldByName(vc.Elem(), "C")
+	if fieldC.IsValid() {
+		fieldC.Set(reflect.ValueOf(vc))
+		//fieldC.Set(vc)
+	}
+
+	initM := vc.MethodByName("Init")
+	if initM.IsValid() {
+		params := []reflect.Value{}
+		initM.Call(params)
+	}
+
+	if c.Option.AutoMapForm {
+		a.StructMap(vc.Elem(), req)
+	}
+
+	if c.Option.CheckXrsf && req.Method == "POST" {
+		res, err := req.Cookie(XSRF_TAG)
+		formVals := req.Form[XSRF_TAG]
+		var formVal string
+		if len(formVals) > 0 {
+			formVal = formVals[0]
+		}
+		if err != nil || res.Value == "" || res.Value != formVal {
+			a.error(w, 500, "xrsf token error.")
+			a.Error("xrsf token error.")
+			statusCode = 500
+			isBreak = true
+			return
+		}
+	}
+
+	//[SWH|+]------------------------------------------Before-Hook
+	structName := reflect.ValueOf(route.HandlerElement.Name())
+	actionName := reflect.ValueOf(route.HandlerMethod)
+	initM = vc.MethodByName("Before")
+	if initM.IsValid() {
+		structAction := []reflect.Value{structName, actionName}
+		if ok := initM.Call(structAction); !ok[0].Bool() {
+			isBreak = true
+			return
+		}
+	}
+
+	ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
+	if err != nil {
+		a.error(w, 500, fmt.Sprintf("handler error: %v", err))
+		//there was an error or panic while calling the handler
+		if a.AppConfig.Mode == Debug {
+			a.error(w, 500, err.Error())
+		} else if a.AppConfig.Mode == Product {
+			a.error(w, 500, "Server Error")
+		}
+		statusCode = 500
+		isBreak = true
+		return
+	}
+	statusCode = fieldA.Interface().(*Action).StatusCode
+
+	//[SWH|+]------------------------------------------After-Hook
+	initM = vc.MethodByName("After")
+	if initM.IsValid() {
+		structAction := []reflect.Value{structName, actionName}
+		for _, v := range ret {
+			structAction = append(structAction, v)
+		}
+		if len(structAction) != initM.Type().NumIn() {
+			a.Error("Error : %v.After(): The number of params is not adapted.", structName)
+			isBreak = true
+			return
+		}
+		if ok := initM.Call(structAction); !ok[0].Bool() {
+			isBreak = true
+			return
+		}
+	}
+
+	if len(ret) == 0 {
+		isBreak = true
+		return
+	}
+
+	sval := ret[0]
+
+	var content []byte
+	if sval.Interface() == nil || sval.Kind() == reflect.Bool {
+		isBreak = true
+		return
+	} else if sval.Kind() == reflect.String {
+		content = []byte(sval.String())
+	} else if sval.Kind() == reflect.Slice && sval.Type().Elem().Kind() == reflect.Uint8 {
+		content = sval.Interface().([]byte)
+	} else if err, ok := sval.Interface().(error); ok {
+		if err != nil {
+			a.Error("Error : %v", err)
+			a.error(w, 500, "Server Error")
+			statusCode = 500
+		}
+		isBreak = true
+		return
+	} else {
+		a.Warn("unkonw returned result type %v, ignored %v", sval,
+			sval.Interface().(error))
+
+		isBreak = true
+		return
+	}
+
+	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	_, err = w.Write(content)
+	if err != nil {
+		a.Error("Error during write: %v", err)
+		statusCode = 500
+		isBreak = true
+		return
+	}
+	return
 }
 
 func (a *App) error(w http.ResponseWriter, status int, content string) error {
@@ -848,14 +905,25 @@ func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status 
 	return nil
 }
 
-func (app *App) Nodes() (r map[string][]string) {
-	r = make(map[string][]string)
-	for _, v := range app.Routes {
-		name := v.HandlerElement.Name()
+func (app *App) Nodes() (r map[string]map[string]string) {
+	r = make(map[string]map[string]string)
+	for _, val := range app.Routes {
+		name := val.HandlerElement.Name()
 		if _, ok := r[name]; !ok {
-			r[name] = make([]string, 0)
+			r[name] = make(map[string]string)
 		}
-		r[name] = append(r[name], v.HandlerMethod)
+		for k, _ := range val.HttpMethods {
+			r[name][k] = val.HandlerMethod
+		}
+	}
+	for _, vals := range app.RoutesEq {
+		for k, v := range vals {
+			name := v.HandlerElement.Name()
+			if _, ok := r[name]; !ok {
+				r[name] = make(map[string]string)
+			}
+			r[name][k] = v.HandlerMethod
+		}
 	}
 	return
 }
