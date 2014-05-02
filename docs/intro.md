@@ -215,6 +215,9 @@ xweb内置的模板函数和Go模板函数一样，在模板中使用{{funcName 
 * `Html(raw string) template.HTML`
 以html格式输出
 
+* `Js(raw string) template.JS`
+输出javascript代码
+
 * `StaticUrl(url string) string`
 自动为静态文件添加版本标识
 
