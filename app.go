@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -617,13 +618,13 @@ func (a *App) StaticUrl(url string) string {
 		basePath = a.BasePath
 	}
 	if !a.AppConfig.StaticFileVersion {
-		return basePath + url
+		return path.Join(basePath, url)
 	}
 	ver := a.StaticVerMgr.GetVersion(url)
 	if ver == "" {
-		return basePath + url
+		return path.Join(basePath, url)
 	}
-	return basePath + url + "?v=" + ver
+	return path.Join(basePath, url+"?v="+ver)
 }
 
 // safelyCall invokes `function` in recover block
@@ -674,7 +675,7 @@ func (a *App) TryServingFile(name string, req *http.Request, w http.ResponseWrit
 	if strings.HasPrefix(name, a.BasePath) {
 		newPath = name[len(a.BasePath):]
 	}
-	staticFile := path.Join(a.AppConfig.StaticDir, newPath)
+	staticFile := filepath.Join(a.AppConfig.StaticDir, newPath)
 	finfo, err := os.Stat(staticFile)
 	if err != nil {
 		return false
@@ -716,7 +717,7 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 
 func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) error {
 	for k, t := range r.Form {
-		if k == XSRF_TAG {
+		if k == XSRF_TAG || k == "" {
 			continue
 		}
 

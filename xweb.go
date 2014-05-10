@@ -5,9 +5,10 @@ package xweb
 import (
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"path"
 )
 
@@ -27,13 +28,15 @@ func redirect(w http.ResponseWriter, url string, status ...int) error {
 }
 
 func Download(w http.ResponseWriter, fpath string) error {
-	data, err := ioutil.ReadFile(fpath)
+	f, err := os.Open(fpath)
 	if err != nil {
 		return err
 	}
+	defer f.Close()
+
 	fName := fpath[len(path.Dir(fpath))+1:]
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fName))
-	_, err = w.Write(data)
+	_, err = io.Copy(w, f)
 	return err
 }
 
