@@ -1,2 +1,9 @@
-[target]
-path=github.com/lunny/xweb
+[deps]
+github.com/go-xweb/httpsession = 
+github.com/go-xweb/log = 
+github.com/go-xweb/uuid = 
+github.com/howeyc/fsnotify = 
+
+[res]
+include = 
+

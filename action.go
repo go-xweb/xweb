@@ -16,7 +16,6 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -28,8 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/go-xweb/httpsession"
+	"github.com/go-xweb/log"
+	"github.com/go-xweb/uuid"
 )
 
 type ActionOption struct {
@@ -297,7 +297,7 @@ func (c *Action) XsrfValue() string {
 	cookie, err := c.GetCookie(XSRF_TAG)
 	if err != nil {
 		val = uuid.NewRandom().String()
-		c.SetCookie(NewCookie(XSRF_TAG, val, c.App.AppConfig.SessionTimeout))
+		c.SetCookie(NewCookie(XSRF_TAG, val, int64(c.App.AppConfig.SessionTimeout)))
 	} else {
 		val = cookie.Value
 	}
@@ -535,28 +535,52 @@ func (c *Action) Namespace() string {
 	return c.App.Actions[c.C.Type()]
 }
 
-func (c *Action) Trace(format string, params ...interface{}) {
-	c.App.Trace(format, params...)
+func (c *Action) Debug(params ...interface{}) {
+	c.App.Debug(params...)
 }
 
-func (c *Action) Debug(format string, params ...interface{}) {
-	c.App.Debug(format, params...)
+func (c *Action) Info(params ...interface{}) {
+	c.App.Info(params...)
 }
 
-func (c *Action) Info(format string, params ...interface{}) {
-	c.App.Info(format, params...)
+func (c *Action) Warn(params ...interface{}) {
+	c.App.Warn(params...)
 }
 
-func (c *Action) Warn(format string, params ...interface{}) {
-	c.App.Warn(format, params...)
+func (c *Action) Error(params ...interface{}) {
+	c.App.Error(params...)
 }
 
-func (c *Action) Error(format string, params ...interface{}) {
-	c.App.Error(format, params...)
+func (c *Action) Fatal(params ...interface{}) {
+	c.App.Fatal(params...)
 }
 
-func (c *Action) Critical(format string, params ...interface{}) {
-	c.App.Critical(format, params...)
+func (c *Action) Panic(params ...interface{}) {
+	c.App.Panic(params...)
+}
+
+func (c *Action) Debugf(format string, params ...interface{}) {
+	c.App.Debugf(format, params...)
+}
+
+func (c *Action) Infof(format string, params ...interface{}) {
+	c.App.Infof(format, params...)
+}
+
+func (c *Action) Warnf(format string, params ...interface{}) {
+	c.App.Warnf(format, params...)
+}
+
+func (c *Action) Errorf(format string, params ...interface{}) {
+	c.App.Errorf(format, params...)
+}
+
+func (c *Action) Fatalf(format string, params ...interface{}) {
+	c.App.Fatalf(format, params...)
+}
+
+func (c *Action) Panicf(format string, params ...interface{}) {
+	c.App.Panicf(format, params...)
 }
 
 // Include method provide to template for {{include "xx.tmpl"}}

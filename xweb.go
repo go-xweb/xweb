@@ -6,10 +6,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
+
+	"github.com/go-xweb/log"
 )
 
 const (
