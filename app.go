@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coscms/xweb/httpsession"
-	"github.com/coscms/xweb/log"
+	"github.com/go-xweb/httpsession"
+	"github.com/go-xweb/log"
 )
 
 const (
