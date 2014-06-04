@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lunny/xweb"
+	"github.com/go-xweb/xweb"
 )
 
 type MainAction struct {

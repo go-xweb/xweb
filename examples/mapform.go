@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/lunny/xweb"
+	"github.com/go-xweb/xweb"
 )
 
 var page = `

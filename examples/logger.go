@@ -1,10 +1,10 @@
 package main
 
 import (
-	"log"
 	"os"
 
-	"github.com/lunny/xweb"
+	"github.com/go-xweb/log"
+	"github.com/go-xweb/xweb"
 )
 
 type MainAction struct {

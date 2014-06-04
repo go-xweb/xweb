@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/lunny/xweb"
+	"github.com/go-xweb/xweb"
 )
 
 type User struct {
@@ -48,7 +48,7 @@ func (c *MainAction) Get() {
 
 func main() {
 	xweb.AddAction(&MainAction{})
-	xweb.MainServer().RootApp.AppConfig.CheckXrsf = false
+	xweb.RootApp().AppConfig.CheckXrsf = false
 	go xweb.Run("0.0.0.0:9999")
 
 	values := url.Values{"key": {"Value"}, "id": {"123"},

@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/lunny/xorm"
-	"github.com/lunny/xweb"
+	"github.com/go-xorm/xorm"
+	"github.com/go-xweb/xweb"
 	_ "github.com/mattn/go-sqlite3"
 )
 

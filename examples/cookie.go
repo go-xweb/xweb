@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"html"
 
-	"github.com/lunny/xweb"
+	"github.com/go-xweb/xweb"
 )
 
 var cookieName = "cookie"
