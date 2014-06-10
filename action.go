@@ -317,7 +317,7 @@ func (c *Action) WriteBytes(bytes []byte) error {
 	//_, err := c.ResponseWriter.Write(bytes)
 	err := c.SetBody(bytes) //[SWH|+]
 	if err != nil {
-		c.App.Error("Error during write: ", err)
+		c.App.Error("Error during write:", err)
 	}
 	return err
 }
@@ -329,7 +329,7 @@ func (c *Action) Write(content string, values ...interface{}) error {
 	//_, err := c.ResponseWriter.Write([]byte(content))
 	err := c.SetBody([]byte(content)) //[SWH|+]
 	if err != nil {
-		c.App.Error("Error during write: ", err)
+		c.App.Error("Error during write:", err)
 	}
 	return err
 }
@@ -590,7 +590,7 @@ func (c *Action) Include(tmplName string) interface{} {
 
 	content, err := c.getTemplate(tmplName)
 	if err != nil {
-		c.Error("RenderTemplate %v read err: %s", tmplName, err)
+		c.Errorf("RenderTemplate %v read err: %s", tmplName, err)
 		return ""
 	}
 
@@ -601,19 +601,19 @@ func (c *Action) Include(tmplName string) interface{} {
 	}
 	tmpl, err := t.Parse(constr)
 	if err != nil {
-		c.Error("Parse %v err: %v", tmplName, err)
+		c.Errorf("Parse %v err: %v", tmplName, err)
 		return ""
 	}
 	newbytes := bytes.NewBufferString("")
 	err = tmpl.Execute(newbytes, c.C.Elem().Interface())
 	if err != nil {
-		c.Error("Parse %v err: %v", tmplName, err)
+		c.Errorf("Parse %v err: %v", tmplName, err)
 		return ""
 	}
 
 	tplcontent, err := ioutil.ReadAll(newbytes)
 	if err != nil {
-		c.Error("Parse %v err: %v", tmplName, err)
+		c.Errorf("Parse %v err: %v", tmplName, err)
 		return ""
 	}
 	return template.HTML(string(tplcontent))

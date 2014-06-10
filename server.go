@@ -54,7 +54,6 @@ func NewServer(args ...string) *Server {
 	}
 	s := &Server{
 		Config:  Config,
-		Logger:  log.New(os.Stdout, "", log.Ldate|log.Ltime),
 		Env:     map[string]interface{}{},
 		Apps:    map[string]*App{},
 		AppName: map[string]string{},
@@ -62,7 +61,7 @@ func NewServer(args ...string) *Server {
 	}
 	Servers[s.Name] = s //[SWH|+]
 
-	s.SetLogger(log.New(os.Stdout, "", log.Ldate|log.Ltime))
+	s.SetLogger(log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Llongcolor))
 
 	app := NewApp("/", "root") //[SWH|+] ,"root"
 	s.AddApp(app)

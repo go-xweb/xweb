@@ -730,6 +730,45 @@ func (a *App) StructMap(vc reflect.Value, r *http.Request) error {
 	return a.namedStructMap(vc, r, "")
 }
 
+// user[name][test]
+func SplitJson(s string) ([]string, error) {
+	res := make([]string, 0)
+	var begin, end int
+	var isleft bool
+	for i, r := range s {
+		switch r {
+		case '[':
+			isleft = true
+			if i > 0 && s[i-1] != ']' {
+				if begin == end {
+					return nil, errors.New("unknow character")
+				}
+				res = append(res, s[begin:end+1])
+			}
+			begin = i + 1
+			end = begin
+		case ']':
+			if !isleft {
+				return nil, errors.New("unknow character")
+			}
+			isleft = false
+			if begin != end {
+				//return nil, errors.New("unknow character")
+
+				res = append(res, s[begin:end+1])
+				begin = i + 1
+				end = begin
+			}
+		default:
+			end = i
+		}
+		if i == len(s)-1 && begin != end {
+			res = append(res, s[begin:end+1])
+		}
+	}
+	return res, nil
+}
+
 func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) error {
 	for k, t := range r.Form {
 		if k == XSRF_TAG || k == "" {
@@ -745,23 +784,32 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 
 		v := t[0]
 		names := strings.Split(k, ".")
+		var err error
+		if len(names) == 1 {
+			names, err = SplitJson(k)
+			if err != nil {
+				a.Warn("Unrecognize form key", k, err)
+				continue
+			}
+		}
+
 		var value reflect.Value = vc
 		for i, name := range names {
 			name = strings.Title(name)
 			if i != len(names)-1 {
 				if value.Kind() != reflect.Struct {
-					a.Warn("arg error, value kind is %v", value.Kind())
+					a.Warnf("arg error, value kind is %v", value.Kind())
 					break
 				}
 
 				//fmt.Println(name)
 				value = value.FieldByName(name)
 				if !value.IsValid() {
-					a.Warn("(%v value is not valid %v)", name, value)
+					a.Warnf("(%v value is not valid %v)", name, value)
 					break
 				}
 				if !value.CanSet() {
-					a.Warn("can not set %v -> %v", name, value.Interface())
+					a.Warnf("can not set %v -> %v", name, value.Interface())
 					break
 				}
 
@@ -772,12 +820,16 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 					value = value.Elem()
 				}
 			} else {
+				if value.Kind() != reflect.Struct {
+					a.Warnf("arg error, value %v kind is %v", name, value.Kind())
+					break
+				}
 				tv := value.FieldByName(name)
 				if !tv.IsValid() {
 					break
 				}
 				if !tv.CanSet() {
-					a.Warn("can not set %v to %v", k, tv)
+					a.Warnf("can not set %v to %v", k, tv)
 					break
 				}
 
@@ -797,7 +849,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 					x, err := strconv.Atoi(v)
 					if err != nil {
-						a.Warn("arg %v as int: %v", v, err)
+						a.Warnf("arg %v as int: %v", v, err)
 						break
 					}
 					l = x
@@ -805,7 +857,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 				case reflect.Int64:
 					x, err := strconv.ParseInt(v, 10, 64)
 					if err != nil {
-						a.Warn("arg %v as int64: %v", v, err)
+						a.Warnf("arg %v as int64: %v", v, err)
 						break
 					}
 					l = x
@@ -813,7 +865,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 				case reflect.Float32, reflect.Float64:
 					x, err := strconv.ParseFloat(v, 64)
 					if err != nil {
-						a.Warn("arg %v as float64: %v", v, err)
+						a.Warnf("arg %v as float64: %v", v, err)
 						break
 					}
 					l = x
@@ -821,7 +873,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 				case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 					x, err := strconv.ParseUint(v, 10, 64)
 					if err != nil {
-						a.Warn("arg %v as uint: %v", v, err)
+						a.Warnf("arg %v as uint: %v", v, err)
 						break
 					}
 					l = x
@@ -830,7 +882,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 					if tvf, ok := tv.Interface().(FromConversion); ok {
 						err := tvf.FromString(v)
 						if err != nil {
-							a.Warn("struct %v invoke FromString faild", tvf)
+							a.Warnf("struct %v invoke FromString faild", tvf)
 						}
 					} else if tv.Type().String() == "time.Time" {
 						x, err := time.Parse("2006-01-02 15:04:05.000 -0700", v)
@@ -839,7 +891,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 							if err != nil {
 								x, err = time.Parse("2006-01-02", v)
 								if err != nil {
-									a.Warn("unsupported time format %v, %v", v, err)
+									a.Warnf("unsupported time format %v, %v", v, err)
 									break
 								}
 							}
@@ -897,7 +949,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 							err = fmt.Errorf("unsupported slice element type %v", tk.String())
 						}
 						if err != nil {
-							a.Warn("slice error: %v, %v", name, err)
+							a.Warnf("slice error: %v, %v", name, err)
 							break
 						}
 					}
@@ -913,7 +965,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status ...int) error {
 	err := redirect(w, url, status...)
 	if err != nil {
-		app.Error("redirect error: %s", err)
+		app.Errorf("redirect error: %s", err)
 		return err
 	}
 	return nil
