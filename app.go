@@ -64,14 +64,6 @@ type AppConfig struct {
 	SessionTimeout    time.Duration
 	FormMapToStruct   bool //[SWH|+]
 	EnableHttpCache   bool //[SWH|+]
-
-	//[SWH|+] On/Off Log
-	EnableTraceLog    bool
-	EnableDebugLog    bool
-	EnableInfoLog     bool
-	EnableWarnLog     bool
-	EnableErrorLog    bool
-	EnableCriticalLog bool
 }
 
 type Route struct {
@@ -106,13 +98,6 @@ func NewApp(args ...string) *App {
 			ReloadTemplates:   true,
 			CheckXrsf:         true,
 			FormMapToStruct:   true,
-
-			EnableTraceLog:    true,
-			EnableDebugLog:    true,
-			EnableInfoLog:     true,
-			EnableWarnLog:     true,
-			EnableErrorLog:    true,
-			EnableCriticalLog: true,
 		},
 		Config:       map[string]interface{}{},
 		Actions:      map[reflect.Type]string{},
