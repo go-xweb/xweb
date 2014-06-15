@@ -50,7 +50,6 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 
 	session := s.App.SessionManager.Session(req, w)
 	//defer s.App.SessionManager.Invalidate(w, session)
-
 	id := session.Get(s.SessionName)
 	has := (id != nil && id != "")
 

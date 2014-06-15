@@ -122,7 +122,9 @@ func (a *App) initApp() {
 
 	if a.AppConfig.SessionOn {
 		a.SessionManager = httpsession.Default()
-		a.SessionManager.SetMaxAge(a.AppConfig.SessionTimeout)
+		if a.AppConfig.SessionTimeout > time.Second {
+			a.SessionManager.SetMaxAge(a.AppConfig.SessionTimeout)
+		}
 		a.SessionManager.Run()
 	}
 
@@ -168,6 +170,8 @@ func (app *App) AutoAction(cs ...interface{}) {
 		if strings.HasSuffix(name, "Action") {
 			path := strings.ToLower(name[:len(name)-6])
 			app.AddRouter(JoinPath(app.BasePath, path), c)
+		} else {
+			app.Warn("AutoAction needs a named ends with Action")
 		}
 	}
 }
@@ -380,7 +384,6 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	//Set the default content-type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
 	if !a.filter(w, req) {
 		statusCode = 302
 		return
