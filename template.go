@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -358,7 +357,7 @@ func (self *TemplateMgr) GetTemplate(tmpl string) ([]byte, error) {
 		return content, nil
 	}
 
-	content, err := ioutil.ReadFile(path.Join(self.RootDir, tmpl))
+	content, err := ioutil.ReadFile(filepath.Join(self.RootDir, tmpl))
 	if err == nil {
 		self.app.Debugf("load template %v from the file:", tmpl)
 		self.Caches[tmpl] = content

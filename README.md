@@ -41,6 +41,7 @@ QQ群：369240307
 
 ## 案例
 
+* [xorm.io](http://xorm.io) - [github.com/go-xorm/website](http://github.com/go-xorm/website)
 * [Godaily.org](http://godaily.org) - [github.com/govc/godaily](http://github.com/govc/godaily)
 * [gopm.io](http://gopm.io) - [github.com/gpmgo/gopm](http://github.com/gpmgo/gopm)
 
