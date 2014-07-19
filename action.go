@@ -692,6 +692,10 @@ func (c *Action) GetFuncs() template.FuncMap {
 	return funcs
 }
 
+func (c *Action) SetConfig(name string, value interface{}) {
+	c.App.Config[name] = value
+}
+
 func (c *Action) GetConfig(name string) interface{} {
 	return c.App.Config[name]
 }
