@@ -11,7 +11,9 @@ import (
 	runtimePprof "runtime/pprof"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/go-xweb/httpsession"
 	"github.com/go-xweb/log"
 )
 
@@ -27,21 +29,23 @@ type ServerConfig struct {
 	UrlPrefix              string
 	UrlSuffix              string
 	StaticHtmlDir          string
+	SessionTimeout         time.Duration
 }
 
 var ServerNumber uint = 0
 
 // Server represents a xweb server.
 type Server struct {
-	Config  *ServerConfig
-	Apps    map[string]*App
-	AppName map[string]string //[SWH|+]
-	Name    string            //[SWH|+]
-	RootApp *App
-	Logger  *log.Logger
-	Env     map[string]interface{}
+	Config         *ServerConfig
+	Apps           map[string]*App
+	AppName        map[string]string //[SWH|+]
+	Name           string            //[SWH|+]
+	SessionManager *httpsession.Manager
+	RootApp        *App
+	Logger         *log.Logger
+	Env            map[string]interface{}
 	//save the listener so it can be closed
-	l net.Listener
+	l              net.Listener
 }
 
 func NewServer(args ...string) *Server {
@@ -264,6 +268,20 @@ func (s *Server) Close() {
 func (s *Server) SetLogger(logger *log.Logger) {
 	s.Logger = logger
 	s.Logger.SetPrefix("[" + s.Name + "] ")
+	if s.RootApp != nil {
+		s.RootApp.Logger = s.Logger
+	}
+}
+
+func (s *Server) InitSession() {
+	s.SessionManager = httpsession.Default()
+	if s.Config.SessionTimeout > time.Second {
+		s.SessionManager.SetMaxAge(s.Config.SessionTimeout)
+	}
+	s.SessionManager.Run()
+	if s.RootApp != nil {
+		s.RootApp.SessionManager = s.SessionManager
+	}
 }
 
 func (s *Server) SetTemplateDir(path string) {
