@@ -121,11 +121,15 @@ func (a *App) initApp() {
 	a.VarMaps["XwebVer"] = Version
 
 	if a.AppConfig.SessionOn {
-		a.SessionManager = httpsession.Default()
-		if a.AppConfig.SessionTimeout > time.Second {
-			a.SessionManager.SetMaxAge(a.AppConfig.SessionTimeout)
+		if a.Server.SessionManager != nil {
+			a.SessionManager = a.Server.SessionManager
+		}else{
+			a.SessionManager = httpsession.Default()
+			if a.AppConfig.SessionTimeout > time.Second {
+				a.SessionManager.SetMaxAge(a.AppConfig.SessionTimeout)
+			}
+			a.SessionManager.Run()
 		}
-		a.SessionManager.Run()
 	}
 
 	if a.Logger == nil {
