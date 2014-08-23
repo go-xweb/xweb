@@ -309,7 +309,7 @@ func TestValid(t *testing.T) {
 	if len(valid.Errors) != 1 {
 		t.Fatalf("valid errors len should be 1 but got %d", len(valid.Errors))
 	}
-	if valid.Errors[0].Key != "Name.Match" {
+	if valid.Errors[0].Key != "Name|Match" {
 		t.Errorf("Message key should be `Name.Match` but got %s", valid.Errors[0].Key)
 	}
 
@@ -325,7 +325,7 @@ func TestValid(t *testing.T) {
 	if len(valid.Errors) != 1 {
 		t.Fatalf("valid errors len should be 1 but got %d", len(valid.Errors))
 	}
-	if valid.Errors[0].Key != "Age.Range" {
+	if valid.Errors[0].Key != "Age|Range" {
 		t.Errorf("Message key should be `Name.Match` but got %s", valid.Errors[0].Key)
 	}
 }
