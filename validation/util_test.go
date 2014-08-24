@@ -20,7 +20,7 @@ func TestGetValidFuncs(t *testing.T) {
 	var err error
 
 	f, _ := tf.FieldByName("Id")
-	if vfs, err = getValidFuncs(f); err != nil {
+	if vfs, err = getValidFuncs(f,tf); err != nil {
 		t.Fatal(err)
 	}
 	if len(vfs) != 0 {
@@ -28,12 +28,12 @@ func TestGetValidFuncs(t *testing.T) {
 	}
 
 	f, _ = tf.FieldByName("Tag")
-	if vfs, err = getValidFuncs(f); err.Error() != "doesn't exsits Maxx valid function" {
+	if vfs, err = getValidFuncs(f, tf); err.Error() != "doesn't exsits Maxx valid function" {
 		t.Fatal(err)
 	}
 
 	f, _ = tf.FieldByName("Name")
-	if vfs, err = getValidFuncs(f); err != nil {
+	if vfs, err = getValidFuncs(f, tf); err != nil {
 		t.Fatal(err)
 	}
 	if len(vfs) != 1 {
@@ -44,7 +44,7 @@ func TestGetValidFuncs(t *testing.T) {
 	}
 
 	f, _ = tf.FieldByName("Age")
-	if vfs, err = getValidFuncs(f); err != nil {
+	if vfs, err = getValidFuncs(f, tf); err != nil {
 		t.Fatal(err)
 	}
 	if len(vfs) != 2 {
@@ -58,7 +58,7 @@ func TestGetValidFuncs(t *testing.T) {
 	}
 
 	f, _ = tf.FieldByName("match")
-	if vfs, err = getValidFuncs(f); err != nil {
+	if vfs, err = getValidFuncs(f,tf); err != nil {
 		t.Fatal(err)
 	}
 	if len(vfs) != 3 {
@@ -72,7 +72,7 @@ func TestCall(t *testing.T) {
 	var vfs []ValidFunc
 	var err error
 	f, _ := tf.FieldByName("Age")
-	if vfs, err = getValidFuncs(f); err != nil {
+	if vfs, err = getValidFuncs(f,tf); err != nil {
 		t.Fatal(err)
 	}
 	valid := &Validation{}

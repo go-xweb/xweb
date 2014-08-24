@@ -231,7 +231,7 @@ func (v *Validation) Check(obj interface{}, checks ...Validator) *ValidationResu
 }
 
 // the obj parameter must be a struct or a struct pointer
-func (v *Validation) Valid(obj interface{}) (b bool, err error) {
+func (v *Validation) Valid(obj interface{}, chkFields ...string) (b bool, err error) {
 	objT := reflect.TypeOf(obj)
 	objV := reflect.ValueOf(obj)
 	switch {
@@ -243,16 +243,36 @@ func (v *Validation) Valid(obj interface{}) (b bool, err error) {
 		err = fmt.Errorf("%v must be a struct or a struct pointer", obj)
 		return
 	}
-
-	for i := 0; i < objT.NumField(); i++ {
-		var vfs []ValidFunc
-		if vfs, err = getValidFuncs(objT.Field(i)); err != nil {
-			return
-		}
-		for _, vf := range vfs {
-			if _, err = funcs.Call(vf.Name,
-				mergeParam(v, objV.Field(i).Interface(), vf.Params)...); err != nil {
+	if len(chkFields) > 0 { //检测指定字段
+		for _, field := range chkFields {
+			var vfs []ValidFunc
+			f, ok := objT.FieldByName(field)
+			if !ok {
+				err = fmt.Errorf("No name for the '%s' field", field)
 				return
+			}
+			if vfs, err = getValidFuncs(f, objT); err != nil {
+				return
+			}
+			fv := objV.FieldByName(field)
+			for _, vf := range vfs {
+				if _, err = funcs.Call(vf.Name,
+					mergeParam(v, fv.Interface(), vf.Params)...); err != nil {
+					return
+				}
+			}
+		}
+	} else { //检测全部字段
+		for i := 0; i < objT.NumField(); i++ {
+			var vfs []ValidFunc
+			if vfs, err = getValidFuncs(objT.Field(i), objT); err != nil {
+				return
+			}
+			for _, vf := range vfs {
+				if _, err = funcs.Call(vf.Name,
+					mergeParam(v, objV.Field(i).Interface(), vf.Params)...); err != nil {
+					return
+				}
 			}
 		}
 	}

@@ -7,18 +7,18 @@ validation is a form validation for a data validation and error collecting using
 
 Install:
 
-	go get github.com/lunny/xweb/validation
+	go get github.com/coscms/xweb/validation
 
 Test:
 
-	go test github.com/lunny/xweb/validation
+	go test github.com/coscms/xweb/validation
 
 ## Example
 
 Direct Use:
 
 	import (
-		"github.com/lunny/xweb/validation"
+		"github.com/coscms/xweb/validation"
 		"log"
 	)
 
@@ -49,7 +49,7 @@ Direct Use:
 Struct Tag Use:
 
 	import (
-		"github.com/lunny/xweb/validation"
+		"github.com/coscms/xweb/validation"
 	)
 
 	// validation function follow with "valid" tag
@@ -65,7 +65,8 @@ Struct Tag Use:
 	func main() {
 		valid := Validation{}
 		u := user{Name: "test", Age: 40}
-		b, err := valid.Valid(u)
+		b, err := valid.Valid(u) //检查所有字段
+		//b, err := valid.Valid(u, "Name", "Age") //检查指定字段：Name和Age
 		if err != nil {
 			// handle error
 		}

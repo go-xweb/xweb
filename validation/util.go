@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/coscms/tagfast"
 )
 
 const (
@@ -78,8 +80,8 @@ func isStructPtr(t reflect.Type) bool {
 	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct
 }
 
-func getValidFuncs(f reflect.StructField) (vfs []ValidFunc, err error) {
-	tag := f.Tag.Get(VALIDTAG)
+func getValidFuncs(f reflect.StructField, t reflect.Type) (vfs []ValidFunc, err error) {
+	tag := tagfast.Tag(t, f, VALIDTAG) //f.Tag.Get(VALIDTAG)
 	if len(tag) == 0 {
 		return
 	}

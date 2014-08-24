@@ -281,14 +281,14 @@ func TestZipCode(t *testing.T) {
 }
 
 func TestValid(t *testing.T) {
-	type user struct {
+	type user2 struct {
 		Id   int
 		Name string `valid:"Required;Match(/^(test)?\\w*@(/test/);com$/)"`
 		Age  int    `valid:"Required;Range(1, 140)"`
 	}
 	valid := Validation{}
 
-	u := user{Name: "test@/test/;com", Age: 40}
+	u := user2{Name: "test@/test/;com", Age: 40}
 	b, err := valid.Valid(u)
 	if err != nil {
 		t.Fatal(err)
@@ -297,7 +297,7 @@ func TestValid(t *testing.T) {
 		t.Error("validation should be passed")
 	}
 
-	uptr := &user{Name: "test", Age: 40}
+	uptr := &user2{Name: "test", Age: 40}
 	valid.Clear()
 	b, err = valid.Valid(uptr)
 	if err != nil {
@@ -310,10 +310,10 @@ func TestValid(t *testing.T) {
 		t.Fatalf("valid errors len should be 1 but got %d", len(valid.Errors))
 	}
 	if valid.Errors[0].Key != "Name|Match" {
-		t.Errorf("Message key should be `Name.Match` but got %s", valid.Errors[0].Key)
+		t.Errorf("Message key should be `Name|Match` but got %s", valid.Errors[0].Key)
 	}
 
-	u = user{Name: "test@/test/;com", Age: 180}
+	u = user2{Name: "test@/test/;com", Age: 180}
 	valid.Clear()
 	b, err = valid.Valid(u)
 	if err != nil {
@@ -326,6 +326,6 @@ func TestValid(t *testing.T) {
 		t.Fatalf("valid errors len should be 1 but got %d", len(valid.Errors))
 	}
 	if valid.Errors[0].Key != "Age|Range" {
-		t.Errorf("Message key should be `Name.Match` but got %s", valid.Errors[0].Key)
+		t.Errorf("Message key should be `Name|Match` but got %s", valid.Errors[0].Key)
 	}
 }
