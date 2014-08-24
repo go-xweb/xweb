@@ -326,6 +326,80 @@ func TestValid(t *testing.T) {
 		t.Fatalf("valid errors len should be 1 but got %d", len(valid.Errors))
 	}
 	if valid.Errors[0].Key != "Age|Range" {
-		t.Errorf("Message key should be `Name|Match` but got %s", valid.Errors[0].Key)
+		t.Errorf("Message key should be `Age|Range` but got %s", valid.Errors[0].Key)
+	}
+
+	valid.Clear()
+	b, err = valid.Valid(u, "Name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !b {
+		t.Error("validation should be passed")
+	}
+
+	type UserExt1 struct {
+		Id   int
+		Name string `valid:"Required;Match(/^\\w+$/)"`
+		Age  int    `valid:"Required;Range(1, 140)"`
+	}
+	type UserExt3 struct {
+		Id     int
+		Domain string `valid:"Required;Match(/^coscms\\.com$/)"`
+	}
+	type UserExt2 struct {
+		Id    int
+		Email string `valid:"Required;Match(/^(test)?\\w*@(/test/);com$/)"`
+		Sex   int    `valid:"Required;Range(0, 1)"`
+		UserExt3
+	}
+	type userExt struct {
+		UserExt1
+		*UserExt2
+	}
+
+	ue := userExt{UserExt1: UserExt1{Name: "coscms", Age: 130}, UserExt2: &UserExt2{Email: "test@/test/;com", Sex: 1, UserExt3: UserExt3{Domain: "coscms.com"}}}
+	valid.Clear()
+	b, err = valid.Valid(ue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !b {
+		t.Error("validation should be passed")
+	}
+
+	ue = userExt{UserExt1: UserExt1{Name: "coscms.com", Age: 128}, UserExt2: &UserExt2{Email: "test@/test/;com", Sex: 1, UserExt3: UserExt3{Domain: "coscms.com"}}}
+	valid.Clear()
+	b, err = valid.Valid(ue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b {
+		t.Error("validation should not be passed")
+	}
+	if len(valid.Errors) != 1 {
+		t.Fatalf("valid errors len should be 1 but got %d", len(valid.Errors))
+	}
+	//t.Errorf("%v", valid.Errors[0].Message)
+	if valid.Errors[0].Key != "UserExt1.Name|Match" {
+		t.Errorf("Message key should be `UserExt1.Name|Match` but got %s", valid.Errors[0].Key)
+	}
+
+	ue = userExt{UserExt1: UserExt1{Name: "coscms.com", Age: 128}, UserExt2: &UserExt2{Email: "test@/test/;com", Sex: 1, UserExt3: UserExt3{Domain: "www.coscms.com"}}}
+	valid.Clear()
+	b, err = valid.Valid(ue, "UserExt2.UserExt3.Domain", "UserExt1.Name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b {
+		t.Error("validation should not be passed")
+	}
+	if len(valid.Errors) != 2 {
+		t.Fatalf("valid errors len should be 2 but got %d", len(valid.Errors))
+	}
+	//t.Errorf("%v", valid.Errors[0].Message)
+	if valid.Errors[0].Key != "UserExt2.UserExt3.Domain|Match" {
+		t.Errorf("Message key should be `UserExt2.UserExt3.Domain|Match` but got %s", valid.Errors[0].Key)
 	}
 }

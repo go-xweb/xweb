@@ -80,12 +80,13 @@ func isStructPtr(t reflect.Type) bool {
 	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct
 }
 
-func getValidFuncs(f reflect.StructField, t reflect.Type) (vfs []ValidFunc, err error) {
+func getValidFuncs(f reflect.StructField, t reflect.Type, fName string) (vfs []ValidFunc, err error) {
 	tag := tagfast.Tag(t, f, VALIDTAG) //f.Tag.Get(VALIDTAG)
+	//fmt.Printf("%s :[Tag]: %s\n\n", fName, tag)
 	if len(tag) == 0 {
 		return
 	}
-	if vfs, tag, err = getRegFuncs(tag, f.Name); err != nil {
+	if vfs, tag, err = getRegFuncs(tag, fName); err != nil {
 		fmt.Printf("%+v\n", err)
 		return
 	}
@@ -95,7 +96,7 @@ func getValidFuncs(f reflect.StructField, t reflect.Type) (vfs []ValidFunc, err 
 		if len(vfunc) == 0 {
 			continue
 		}
-		vf, err = parseFunc(vfunc, f.Name)
+		vf, err = parseFunc(vfunc, fName)
 		if err != nil {
 			return
 		}

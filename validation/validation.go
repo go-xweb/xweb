@@ -231,7 +231,22 @@ func (v *Validation) Check(obj interface{}, checks ...Validator) *ValidationResu
 }
 
 // the obj parameter must be a struct or a struct pointer
-func (v *Validation) Valid(obj interface{}, chkFields ...string) (b bool, err error) {
+func (v *Validation) Valid(obj interface{}, args ...string) (b bool, err error) {
+	err = v.validExec(obj, "", args...)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if !v.HasErrors() {
+		if form, ok := obj.(ValidFormer); ok {
+			form.Valid(v)
+		}
+	}
+
+	return !v.HasErrors(), nil
+}
+
+func (v *Validation) validExec(obj interface{}, baseName string, args ...string) (err error) {
 	objT := reflect.TypeOf(obj)
 	objV := reflect.ValueOf(obj)
 	switch {
@@ -243,18 +258,45 @@ func (v *Validation) Valid(obj interface{}, chkFields ...string) (b bool, err er
 		err = fmt.Errorf("%v must be a struct or a struct pointer", obj)
 		return
 	}
+	var chkFields map[string][]string = make(map[string][]string)
+	var pNum int = len(args)
+	//fmt.Println(objT.Name(), ":[Struct NumIn]", pNum)
+	if pNum > 0 {
+		//aa.b.c,ab.b.c
+		for _, v := range args {
+			arr := strings.SplitN(v, ".", 2)
+			if _, ok := chkFields[arr[0]]; !ok {
+				chkFields[arr[0]] = make([]string, 0)
+			}
+			if len(arr) > 1 {
+				chkFields[arr[0]] = append(chkFields[arr[0]], arr[1])
+			}
+		}
+	}
+	args = make([]string, 0)
 	if len(chkFields) > 0 { //检测指定字段
-		for _, field := range chkFields {
+		for field, args := range chkFields {
 			var vfs []ValidFunc
 			f, ok := objT.FieldByName(field)
 			if !ok {
 				err = fmt.Errorf("No name for the '%s' field", field)
 				return
 			}
-			if vfs, err = getValidFuncs(f, objT); err != nil {
-				return
+
+			var fName string
+			if baseName == "" {
+				fName = f.Name
+			} else {
+				fName = strings.Join([]string{baseName, f.Name}, ".")
 			}
 			fv := objV.FieldByName(field)
+			if isStruct(f.Type) || isStructPtr(f.Type) {
+				err = v.validExec(fv.Interface(), fName, args...)
+				continue
+			}
+			if vfs, err = getValidFuncs(f, objT, fName); err != nil {
+				return
+			}
 			for _, vf := range vfs {
 				if _, err = funcs.Call(vf.Name,
 					mergeParam(v, fv.Interface(), vf.Params)...); err != nil {
@@ -265,7 +307,19 @@ func (v *Validation) Valid(obj interface{}, chkFields ...string) (b bool, err er
 	} else { //检测全部字段
 		for i := 0; i < objT.NumField(); i++ {
 			var vfs []ValidFunc
-			if vfs, err = getValidFuncs(objT.Field(i), objT); err != nil {
+
+			var fName string
+			if baseName == "" {
+				fName = objT.Field(i).Name
+			} else {
+				fName = strings.Join([]string{baseName, objT.Field(i).Name}, ".")
+			}
+			//fmt.Println(fName, ":[Type]:", objT.Field(i).Type.Kind())
+			if isStruct(objT.Field(i).Type) || isStructPtr(objT.Field(i).Type) {
+				err = v.validExec(objV.Field(i).Interface(), fName)
+				continue
+			}
+			if vfs, err = getValidFuncs(objT.Field(i), objT, fName); err != nil {
 				return
 			}
 			for _, vf := range vfs {
@@ -276,12 +330,5 @@ func (v *Validation) Valid(obj interface{}, chkFields ...string) (b bool, err er
 			}
 		}
 	}
-
-	if !v.HasErrors() {
-		if form, ok := obj.(ValidFormer); ok {
-			form.Valid(v)
-		}
-	}
-
-	return !v.HasErrors(), nil
+	return
 }
