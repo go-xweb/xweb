@@ -7,18 +7,18 @@ validation is a form validation for a data validation and error collecting using
 
 Install:
 
-	go get github.com/coscms/xweb/validation
+	go get github.com/go-xweb/xweb/validation
 
 Test:
 
-	go test github.com/coscms/xweb/validation
+	go test github.com/go-xweb/xweb/validation
 
 ## Example
 
 Direct Use:
 
 	import (
-		"github.com/coscms/xweb/validation"
+		"github.com/go-xweb/xweb/validation"
 		"log"
 	)
 
@@ -49,7 +49,7 @@ Direct Use:
 Struct Tag Use:
 
 	import (
-		"github.com/coscms/xweb/validation"
+		"github.com/go-xweb/xweb/validation"
 	)
 
 	// validation function follow with "valid" tag
