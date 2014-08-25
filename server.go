@@ -45,7 +45,7 @@ type Server struct {
 	Logger         *log.Logger
 	Env            map[string]interface{}
 	//save the listener so it can be closed
-	l              net.Listener
+	l net.Listener
 }
 
 func NewServer(args ...string) *Server {
@@ -274,7 +274,9 @@ func (s *Server) SetLogger(logger *log.Logger) {
 }
 
 func (s *Server) InitSession() {
-	s.SessionManager = httpsession.Default()
+	if s.SessionManager == nil {
+		s.SessionManager = httpsession.Default()
+	}
 	if s.Config.SessionTimeout > time.Second {
 		s.SessionManager.SetMaxAge(s.Config.SessionTimeout)
 	}
