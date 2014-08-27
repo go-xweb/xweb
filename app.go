@@ -969,7 +969,7 @@ func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status 
 	return nil
 }
 
-func (app *App) Act(name string) interface{} {
+func (app *App) Action(name string) interface{} {
 	if v, ok := app.Actions[name]; ok {
 		return v
 	}
