@@ -33,7 +33,9 @@ type App struct {
 	Server          *Server
 	AppConfig       *AppConfig
 	Config          map[string]interface{}
-	Actions         map[reflect.Type]string
+	Actions         map[string]interface{}
+	ActionsPath     map[reflect.Type]string
+	ActionsNamePath map[string]string
 	FuncMaps        template.FuncMap
 	Logger          *log.Logger
 	VarMaps         T
@@ -99,13 +101,15 @@ func NewApp(args ...string) *App {
 			CheckXrsf:         true,
 			FormMapToStruct:   true,
 		},
-		Config:       map[string]interface{}{},
-		Actions:      map[reflect.Type]string{},
-		FuncMaps:     defaultFuncs,
-		VarMaps:      T{},
-		filters:      make([]Filter, 0),
-		StaticVerMgr: new(StaticVerMgr),
-		TemplateMgr:  new(TemplateMgr),
+		Config:          map[string]interface{}{},
+		Actions:         map[string]interface{}{},
+		ActionsPath:     map[reflect.Type]string{},
+		ActionsNamePath: map[string]string{},
+		FuncMaps:        defaultFuncs,
+		VarMaps:         T{},
+		filters:         make([]Filter, 0),
+		StaticVerMgr:    new(StaticVerMgr),
+		TemplateMgr:     new(TemplateMgr),
 	}
 }
 
@@ -123,7 +127,7 @@ func (a *App) initApp() {
 	if a.AppConfig.SessionOn {
 		if a.Server.SessionManager != nil {
 			a.SessionManager = a.Server.SessionManager
-		}else{
+		} else {
 			a.SessionManager = httpsession.Default()
 			if a.AppConfig.SessionTimeout > time.Second {
 				a.SessionManager.SetMaxAge(a.AppConfig.SessionTimeout)
@@ -285,7 +289,9 @@ var (
 
 func (app *App) AddRouter(url string, c interface{}) {
 	t := reflect.TypeOf(c).Elem()
-	app.Actions[t] = url
+	app.ActionsPath[t] = url
+	app.Actions[t.Name()] = c
+	app.ActionsNamePath[t.Name()] = url
 	for i := 0; i < t.NumField(); i++ {
 		if t.Field(i).Type != mapperType {
 			continue
@@ -959,6 +965,13 @@ func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status 
 	if err != nil {
 		app.Errorf("redirect error: %s", err)
 		return err
+	}
+	return nil
+}
+
+func (app *App) Action(name string) interface{} {
+	if v, ok := app.Actions[name]; ok {
+		return v
 	}
 	return nil
 }

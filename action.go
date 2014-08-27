@@ -494,7 +494,7 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 		t = reflect.TypeOf(c.C.Interface()).Elem()
 	}
 
-	root, ok := c.App.Actions[t]
+	root, ok := c.App.ActionsPath[t]
 	if !ok {
 		return NotFound()
 	}
@@ -532,7 +532,7 @@ func (c *Action) BasePath() string {
 }
 
 func (c *Action) Namespace() string {
-	return c.App.Actions[c.C.Type()]
+	return c.App.ActionsPath[c.C.Type()]
 }
 
 func (c *Action) Debug(params ...interface{}) {

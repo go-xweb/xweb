@@ -175,7 +175,7 @@ func UrlFor(args ...string) string {
 		url += server.Config.Url
 		prefix = server.Config.UrlPrefix
 		suffix = server.Config.UrlSuffix
-		if appPath, ok := server.AppName[s[1]]; ok {
+		if appPath, ok := server.AppsNamePath[s[1]]; ok {
 			appUrl = appPath
 		}
 	}
