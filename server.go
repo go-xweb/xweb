@@ -38,7 +38,7 @@ var ServerNumber uint = 0
 type Server struct {
 	Config         *ServerConfig
 	Apps           map[string]*App
-	AppName        map[string]string //[SWH|+]
+	AppsNamePath        map[string]string //[SWH|+]
 	Name           string            //[SWH|+]
 	SessionManager *httpsession.Manager
 	RootApp        *App
@@ -60,7 +60,7 @@ func NewServer(args ...string) *Server {
 		Config:  Config,
 		Env:     map[string]interface{}{},
 		Apps:    map[string]*App{},
-		AppName: map[string]string{},
+		AppsNamePath: map[string]string{},
 		Name:    name,
 	}
 	Servers[s.Name] = s //[SWH|+]
@@ -78,7 +78,7 @@ func (s *Server) AddApp(a *App) {
 
 	//[SWH|+]
 	if a.Name != "" {
-		s.AppName[a.Name] = a.BasePath
+		s.AppsNamePath[a.Name] = a.BasePath
 	}
 
 	a.Server = s
@@ -295,7 +295,7 @@ func (s *Server) SetStaticDir(path string) {
 }
 
 func (s *Server) App(name string) *App {
-	path, ok := s.AppName[name]
+	path, ok := s.AppsNamePath[name]
 	if ok {
 		return s.Apps[path]
 	}
