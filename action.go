@@ -671,7 +671,9 @@ func (c *Action) getTemplate(tmpl string) ([]byte, error) {
 
 	return ioutil.ReadFile(path)
 }
-
+func (c *Action) GetTemplate(tmpl string) ([]byte, error) {
+	return c.getTemplate(tmpl)
+}
 // render the template with vars map, you can have zero or one map
 func (c *Action) Render(tmpl string, params ...*T) error {
 	content, err := c.getTemplate(tmpl)
