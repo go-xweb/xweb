@@ -531,10 +531,9 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 
 	ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
 	if err != nil {
-		a.error(w, 500, fmt.Sprintf("handler error: %v", err))
 		//there was an error or panic while calling the handler
 		if a.AppConfig.Mode == Debug {
-			a.error(w, 500, err.Error())
+			a.error(w, 500, fmt.Sprintf("<pre>handler error: %v</pre>", err))
 		} else if a.AppConfig.Mode == Product {
 			a.error(w, 500, "Server Error")
 		}
