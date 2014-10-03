@@ -751,7 +751,7 @@ func (c *Action) ServeXml(obj interface{}) {
 	c.ResponseWriter.Write(content)
 }
 
-func (c *Action) GetSlice(key string) ([]string, bool) {
+func (c *Action) GetSlice(key string) []string {
 	return c.Request.Form[key]
 }
 
