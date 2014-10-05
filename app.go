@@ -975,24 +975,40 @@ func (app *App) Action(name string) interface{} {
 	return nil
 }
 
-func (app *App) Nodes() (r map[string]map[string]string) {
-	r = make(map[string]map[string]string)
+/*
+example:
+{
+	"AdminAction":{
+		"Index":["GET","POST"],
+		"Add":	["GET","POST"],
+		"Edit":	["GET","POST"]
+	}
+}
+*/
+func (app *App) Nodes() (r map[string]map[string][]string) {
+	r = make(map[string]map[string][]string)
 	for _, val := range app.Routes {
 		name := val.HandlerElement.Name()
 		if _, ok := r[name]; !ok {
-			r[name] = make(map[string]string)
+			r[name] = make(map[string][]string)
+		}
+		if _, ok := r[name][val.HandlerMethod]; !ok {
+			r[name][val.HandlerMethod] = make([]string, 0)
 		}
 		for k, _ := range val.HttpMethods {
-			r[name][k] = val.HandlerMethod
+			r[name][val.HandlerMethod] = append(r[name][val.HandlerMethod], k) //FUNC1:[POST,GET]
 		}
 	}
 	for _, vals := range app.RoutesEq {
 		for k, v := range vals {
 			name := v.HandlerElement.Name()
 			if _, ok := r[name]; !ok {
-				r[name] = make(map[string]string)
+				r[name] = make(map[string][]string)
 			}
-			r[name][k] = v.HandlerMethod
+			if _, ok := r[name][v.HandlerMethod]; !ok {
+				r[name][v.HandlerMethod] = make([]string, 0)
+			}
+			r[name][v.HandlerMethod] = append(r[name][v.HandlerMethod], k) //FUNC1:[POST,GET]
 		}
 	}
 	return
