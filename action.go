@@ -216,6 +216,10 @@ func (c *Action) Cookie(key string) string {
 
 // Body returns the raw request body data as bytes.
 func (c *Action) Body() []byte {
+	if len(c.RequestBody) > 0 {
+		return c.RequestBody
+	}
+
 	requestbody, _ := ioutil.ReadAll(c.Request.Body)
 	c.Request.Body.Close()
 	bf := bytes.NewBuffer(requestbody)
