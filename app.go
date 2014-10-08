@@ -33,7 +33,9 @@ type App struct {
 	Server          *Server
 	AppConfig       *AppConfig
 	Config          map[string]interface{}
-	Actions         map[reflect.Type]string
+	Actions         map[string]interface{}
+	ActionsPath     map[reflect.Type]string
+	ActionsNamePath map[string]string
 	FuncMaps        template.FuncMap
 	Logger          *log.Logger
 	VarMaps         T
@@ -99,13 +101,15 @@ func NewApp(args ...string) *App {
 			CheckXrsf:         true,
 			FormMapToStruct:   true,
 		},
-		Config:       map[string]interface{}{},
-		Actions:      map[reflect.Type]string{},
-		FuncMaps:     defaultFuncs,
-		VarMaps:      T{},
-		filters:      make([]Filter, 0),
-		StaticVerMgr: new(StaticVerMgr),
-		TemplateMgr:  new(TemplateMgr),
+		Config:          map[string]interface{}{},
+		Actions:         map[string]interface{}{},
+		ActionsPath:     map[reflect.Type]string{},
+		ActionsNamePath: map[string]string{},
+		FuncMaps:        defaultFuncs,
+		VarMaps:         T{},
+		filters:         make([]Filter, 0),
+		StaticVerMgr:    new(StaticVerMgr),
+		TemplateMgr:     new(TemplateMgr),
 	}
 }
 
@@ -123,7 +127,7 @@ func (a *App) initApp() {
 	if a.AppConfig.SessionOn {
 		if a.Server.SessionManager != nil {
 			a.SessionManager = a.Server.SessionManager
-		}else{
+		} else {
 			a.SessionManager = httpsession.Default()
 			if a.AppConfig.SessionTimeout > time.Second {
 				a.SessionManager.SetMaxAge(a.AppConfig.SessionTimeout)
@@ -285,7 +289,9 @@ var (
 
 func (app *App) AddRouter(url string, c interface{}) {
 	t := reflect.TypeOf(c).Elem()
-	app.Actions[t] = url
+	app.ActionsPath[t] = url
+	app.Actions[t.Name()] = c
+	app.ActionsNamePath[t.Name()] = url
 	for i := 0; i < t.NumField(); i++ {
 		if t.Field(i).Type != mapperType {
 			continue
@@ -525,10 +531,9 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 
 	ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
 	if err != nil {
-		a.error(w, 500, fmt.Sprintf("handler error: %v", err))
 		//there was an error or panic while calling the handler
 		if a.AppConfig.Mode == Debug {
-			a.error(w, 500, err.Error())
+			a.error(w, 500, fmt.Sprintf("<pre>handler error: %v</pre>", err))
 		} else if a.AppConfig.Mode == Product {
 			a.error(w, 500, "Server Error")
 		}
@@ -963,24 +968,47 @@ func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status 
 	return nil
 }
 
-func (app *App) Nodes() (r map[string]map[string]string) {
-	r = make(map[string]map[string]string)
+func (app *App) Action(name string) interface{} {
+	if v, ok := app.Actions[name]; ok {
+		return v
+	}
+	return nil
+}
+
+/*
+example:
+{
+	"AdminAction":{
+		"Index":["GET","POST"],
+		"Add":	["GET","POST"],
+		"Edit":	["GET","POST"]
+	}
+}
+*/
+func (app *App) Nodes() (r map[string]map[string][]string) {
+	r = make(map[string]map[string][]string)
 	for _, val := range app.Routes {
 		name := val.HandlerElement.Name()
 		if _, ok := r[name]; !ok {
-			r[name] = make(map[string]string)
+			r[name] = make(map[string][]string)
+		}
+		if _, ok := r[name][val.HandlerMethod]; !ok {
+			r[name][val.HandlerMethod] = make([]string, 0)
 		}
 		for k, _ := range val.HttpMethods {
-			r[name][k] = val.HandlerMethod
+			r[name][val.HandlerMethod] = append(r[name][val.HandlerMethod], k) //FUNC1:[POST,GET]
 		}
 	}
 	for _, vals := range app.RoutesEq {
 		for k, v := range vals {
 			name := v.HandlerElement.Name()
 			if _, ok := r[name]; !ok {
-				r[name] = make(map[string]string)
+				r[name] = make(map[string][]string)
 			}
-			r[name][k] = v.HandlerMethod
+			if _, ok := r[name][v.HandlerMethod]; !ok {
+				r[name][v.HandlerMethod] = make([]string, 0)
+			}
+			r[name][v.HandlerMethod] = append(r[name][v.HandlerMethod], k) //FUNC1:[POST,GET]
 		}
 	}
 	return

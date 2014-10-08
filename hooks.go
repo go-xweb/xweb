@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 var (
@@ -21,10 +22,13 @@ type Hook []reflect.Value
 type HookEngine struct {
 	Hooks map[string]Hook
 	Index map[string]uint
+	lock  *sync.RWMutex
 }
 
 func (f *HookEngine) Bind(name string, fns ...interface{}) (err error) {
+	f.lock.Lock()
 	defer func() {
+		f.lock.Unlock()
 		if e := recover(); e != nil {
 			err = errors.New(name + " is not callable.")
 		}
@@ -54,6 +58,8 @@ func (f *HookEngine) Bind(name string, fns ...interface{}) (err error) {
 }
 
 func (f *HookEngine) Call(name string, params ...interface{}) (result []reflect.Value, err error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
 	if _, ok := f.Hooks[name]; !ok {
 		err = errors.New(name + " does not exist.")
 		return
@@ -95,7 +101,7 @@ func (f *HookEngine) String(c reflect.Value) string {
 }
 
 func NewHookEngine(size int) *HookEngine {
-	h := &HookEngine{Hooks: make(map[string]Hook, size), Index: make(map[string]uint, size)}
+	h := &HookEngine{Hooks: make(map[string]Hook, size), Index: make(map[string]uint, size), lock: new(sync.RWMutex)}
 
 	//func(mux *http.ServeMux) *http.ServeMux
 	h.Hooks["MuxHandle"] = make(Hook, 0)
