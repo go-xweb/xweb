@@ -2,9 +2,9 @@
 
 xweb is a web framework for Go which is based on web.go. It just like Struts for Java. 
 
-[中文](https://github.com/lunny/xweb/blob/master/README.md)
+[中文](https://github.com/go-xweb/xweb/blob/master/README.md)
 
-[![Build Status](https://drone.io/github.com/lunny/xweb/status.png)](https://drone.io/github.com/lunny/xweb/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/lunny/xweb)
+[![Build Status](https://drone.io/github.com/go-xweb/xweb/status.png)](https://drone.io/github.com/go-xweb/xweb/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/go-xweb/xweb)
 
 ## Changelog
 
@@ -26,15 +26,16 @@ To install xweb, simply run:
 
 ## Examples
 
-Please visit [examples](https://github.com/lunny/xweb/tree/master/examples) folder
+Please visit [examples](https://github.com/go-xweb/xweb/tree/master/examples) folder
 
 ## Case
 
+* [xorm.io](http://xorm.io)
 * [Godaily.org](http://godaily.org)
 
 ## Documentation
 
-API, Please visit [GoWalker](http://gowalker.org/github.com/lunny/xweb)
+API, Please visit [GoWalker](http://gowalker.org/github.com/go-xweb/xweb)
 
 
 ## License
