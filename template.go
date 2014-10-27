@@ -336,6 +336,7 @@ func (self *TemplateMgr) CacheAll(rootDir string) error {
 func (self *TemplateMgr) Init(app *App, rootDir string, reload bool) error {
 	self.RootDir = rootDir
 	self.Caches = make(map[string][]byte)
+	self.Ignores = make(map[string]bool)
 	self.mutex = &sync.Mutex{}
 	self.app = app
 	if dirExists(rootDir) {
@@ -344,6 +345,10 @@ func (self *TemplateMgr) Init(app *App, rootDir string, reload bool) error {
 		if reload {
 			go self.Moniter(rootDir)
 		}
+	}
+
+	if len(self.Ignores) == 0 {
+		self.Ignores["*.tmp"] = false
 	}
 
 	return nil
