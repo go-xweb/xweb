@@ -719,6 +719,11 @@ func (c *Action) SetHeader(key string, value string) {
 
 // add a name value for template
 func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
+	if varOrFunc == nil {
+		c.T[name] = varOrFunc
+		return
+	}
+
 	if reflect.ValueOf(varOrFunc).Type().Kind() == reflect.Func {
 		c.f[name] = varOrFunc
 	} else {
