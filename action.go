@@ -761,8 +761,8 @@ func (c *Action) ServeXml(obj interface{}) {
 }
 
 func (c *Action) ServeFile(fpath string) {
+	c.ResponseWriter.Header().Del("Content-Type")
 	http.ServeFile(c.ResponseWriter, c.Request, fpath)
-	//c.App.TryServingFile(fpath, c.Request, c.ResponseWriter)
 }
 
 func (c *Action) GetSlice(key string) []string {
