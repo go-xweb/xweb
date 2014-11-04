@@ -1,6 +1,7 @@
 package xweb
 
 import (
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -137,7 +138,7 @@ func Eq(left interface{}, right interface{}) bool {
 		}
 		return false
 	}
-	return left == right
+	return fmt.Sprintf("%v", left) == fmt.Sprintf("%v", right)
 }
 
 func Html(raw string) template.HTML {
