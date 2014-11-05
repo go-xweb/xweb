@@ -92,7 +92,7 @@ func (c *MainAction) Login() error {
 }
 
 func main() {
-	xweb.RootApp().AppConfig.CheckXrsf = false
+	xweb.RootApp().AppConfig.CheckXsrf = false
 	xweb.RootApp().AppConfig.SessionOn = false
 	xweb.AddRouter("/", &MainAction{})
 	xweb.Run("0.0.0.0:9999")

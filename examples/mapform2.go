@@ -32,7 +32,7 @@ type User struct {
 
 func (c *MainAction) Init() {
 	c.Option.AutoMapForm = false
-	c.Option.CheckXrsf = false
+	c.Option.CheckXsrf = false
 }
 
 func (c *MainAction) Parse() error {

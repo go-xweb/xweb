@@ -34,7 +34,7 @@ import (
 
 type ActionOption struct {
 	AutoMapForm bool
-	CheckXrsf   bool
+	CheckXsrf   bool
 }
 
 // An Action object or it's substruct is created for every incoming HTTP request.
@@ -309,7 +309,7 @@ func (c *Action) XsrfValue() string {
 }
 
 func (c *Action) XsrfFormHtml() template.HTML {
-	if c.App.AppConfig.CheckXrsf {
+	if c.App.AppConfig.CheckXsrf {
 		return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v" />`,
 			XSRF_TAG, c.XsrfValue()))
 	}
