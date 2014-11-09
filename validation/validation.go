@@ -326,7 +326,7 @@ func (v *Validation) validExec(obj interface{}, baseName string, args ...string)
 			} else {
 				fName = strings.Join([]string{baseName, objT.Field(i).Name}, ".")
 			}
-			fmt.Println(fName, ":[Type]:", objT.Field(i).Type.Kind())
+			//fmt.Println(fName, ":[Type]:", objT.Field(i).Type.Kind())
 			if isStruct(objT.Field(i).Type) || isStructPtr(objT.Field(i).Type) {
 				if objV.Field(i).CanInterface() {
 					err = v.validExec(objV.Field(i).Interface(), fName)
