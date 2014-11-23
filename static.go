@@ -46,45 +46,27 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 						watcher.Watch(ev.Name)
 					} else {
 						url := ev.Name[len(self.Path)+1:]
-						ver := self.getFileVer(url)
-						if ver != "" {
-							self.mutex.Lock()
-							self.Caches[url] = ver
-							self.mutex.Unlock()
-							self.app.Infof("static file %s is created.", url)
-						}
+						self.CacheItem(url)
 					}
 				} else if ev.IsDelete() {
 					if d.IsDir() {
 						watcher.RemoveWatch(ev.Name)
 					} else {
 						pa := ev.Name[len(self.Path)+1:]
-						self.mutex.Lock()
-						delete(self.Caches, pa)
-						self.mutex.Unlock()
-						self.app.Infof("static file %s is deleted.", pa)
+						self.CacheDelete(pa)
 					}
 				} else if ev.IsModify() {
 					if d.IsDir() {
 					} else {
 						url := ev.Name[len(staticPath)+1:]
-						ver := self.getFileVer(url)
-						if ver != "" {
-							self.mutex.Lock()
-							self.Caches[url] = ver
-							self.mutex.Unlock()
-							self.app.Infof("static file %s is reloaded.", url)
-						}
+						self.CacheItem(url)
 					}
 				} else if ev.IsRename() {
 					if d.IsDir() {
 						watcher.RemoveWatch(ev.Name)
 					} else {
 						url := ev.Name[len(staticPath)+1:]
-						self.mutex.Lock()
-						delete(self.Caches, url)
-						self.mutex.Unlock()
-						self.app.Infof("static file %s is deleted.\n", url)
+						self.CacheDelete(url)
 					}
 				}
 			case err := <-watcher.Error:
@@ -155,6 +137,7 @@ func (self *StaticVerMgr) getFileVer(url string) string {
 func (self *StaticVerMgr) CacheAll(staticPath string) error {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
+	//fmt.Print("Getting static file version number, please wait... ")
 	err := filepath.Walk(staticPath, func(f string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -165,6 +148,7 @@ func (self *StaticVerMgr) CacheAll(staticPath string) error {
 		}
 		return nil
 	})
+	//fmt.Println("Complete.")
 	return err
 }
 
@@ -180,4 +164,22 @@ func (self *StaticVerMgr) GetVersion(url string) string {
 		self.Caches[url] = ver
 	}
 	return ver
+}
+
+func (self *StaticVerMgr) CacheDelete(url string) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+	delete(self.Caches, url)
+	self.app.Infof("static file %s is deleted.\n", url)
+}
+
+func (self *StaticVerMgr) CacheItem(url string) {
+	fmt.Println(url)
+	ver := self.getFileVer(url)
+	if ver != "" {
+		self.mutex.Lock()
+		defer self.mutex.Unlock()
+		self.Caches[url] = ver
+		self.app.Infof("static file %s is created.", url)
+	}
 }

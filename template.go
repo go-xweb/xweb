@@ -314,6 +314,7 @@ func (self *TemplateMgr) Moniter(rootDir string) error {
 func (self *TemplateMgr) CacheAll(rootDir string) error {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
+	//fmt.Print("Reading the contents of the template files, please wait... ")
 	err := filepath.Walk(rootDir, func(f string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -332,6 +333,7 @@ func (self *TemplateMgr) CacheAll(rootDir string) error {
 		}
 		return nil
 	})
+	//fmt.Println("Complete.")
 	return err
 }
 
