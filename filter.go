@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
 )
 
@@ -15,6 +16,7 @@ type LoginFilter struct {
 	AnonymousUrls []*regexp.Regexp
 	AskLoginUrls  []*regexp.Regexp
 	Redirect      string
+	OriUrlName    string
 }
 
 func NewLoginFilter(app *App, name string, redirect string) *LoginFilter {
@@ -49,9 +51,13 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	requestPath := removeStick(req.URL.Path)
 
 	session := s.App.SessionManager.Session(req, w)
-	//defer s.App.SessionManager.Invalidate(w, session)
 	id := session.Get(s.SessionName)
 	has := (id != nil && id != "")
+
+	var redirect = s.Redirect
+	if s.OriUrlName != "" {
+		redirect = redirect + "?" + s.OriUrlName + "=" + url.QueryEscape(req.URL.String())
+	}
 
 	for _, cr := range s.AskLoginUrls {
 		if !cr.MatchString(requestPath) {
@@ -62,7 +68,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 			continue
 		}
 		if !has {
-			s.App.Redirect(w, requestPath, s.Redirect)
+			s.App.Redirect(w, requestPath, redirect)
 		}
 		return has
 	}
@@ -83,7 +89,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	}
 
 	if !has {
-		s.App.Redirect(w, requestPath, s.Redirect)
+		s.App.Redirect(w, requestPath, redirect)
 	}
 	return has
 }

@@ -850,6 +850,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 						break
 					}
 					l = x
+					//tv.set
 					tv.Set(reflect.ValueOf(l))
 				case reflect.Int64:
 					x, err := strconv.ParseInt(v, 10, 64)
@@ -951,6 +952,7 @@ func (a *App) namedStructMap(vc reflect.Value, r *http.Request, topName string) 
 						}
 					}
 				default:
+					a.Warnf("unknow mapping method", name)
 					break
 				}
 			}

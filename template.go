@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -14,11 +15,11 @@ import (
 )
 
 func IsNil(a interface{}) bool {
-	switch a.(type) {
-	case nil:
+	if a == nil {
 		return true
 	}
-	return false
+	aa := reflect.ValueOf(a)
+	return !aa.IsValid() || aa.IsNil()
 }
 
 func Add(left interface{}, right interface{}) interface{} {
