@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/coscms/tagfast"
 )
 
 type ValidFormer interface {
@@ -276,12 +278,16 @@ func (v *Validation) validExec(obj interface{}, baseName string, args ...string)
 	args = make([]string, 0)
 	if len(chkFields) > 0 { //检测指定字段
 		for field, args := range chkFields {
-			var vfs []ValidFunc
 			f, ok := objT.FieldByName(field)
 			if !ok {
 				err = fmt.Errorf("No name for the '%s' field", field)
 				return
 			}
+			tag := tagfast.Tag(objT, f, VALIDTAG)
+			if tag == "-" {
+				continue
+			}
+			var vfs []ValidFunc
 
 			var fName string
 			if baseName == "" {
@@ -291,7 +297,9 @@ func (v *Validation) validExec(obj interface{}, baseName string, args ...string)
 			}
 			fv := objV.FieldByName(field)
 			if isStruct(f.Type) || isStructPtr(f.Type) {
-				err = v.validExec(fv.Interface(), fName, args...)
+				if fv.CanInterface() {
+					err = v.validExec(fv.Interface(), fName, args...)
+				}
 				continue
 			}
 			if vfs, err = getValidFuncs(f, objT, fName); err != nil {
@@ -306,6 +314,10 @@ func (v *Validation) validExec(obj interface{}, baseName string, args ...string)
 		}
 	} else { //检测全部字段
 		for i := 0; i < objT.NumField(); i++ {
+			tag := tagfast.Tag(objT, objT.Field(i), VALIDTAG)
+			if tag == "-" {
+				continue
+			}
 			var vfs []ValidFunc
 
 			var fName string
@@ -316,7 +328,9 @@ func (v *Validation) validExec(obj interface{}, baseName string, args ...string)
 			}
 			//fmt.Println(fName, ":[Type]:", objT.Field(i).Type.Kind())
 			if isStruct(objT.Field(i).Type) || isStructPtr(objT.Field(i).Type) {
-				err = v.validExec(objV.Field(i).Interface(), fName)
+				if objV.Field(i).CanInterface() {
+					err = v.validExec(objV.Field(i).Interface(), fName)
+				}
 				continue
 			}
 			if vfs, err = getValidFuncs(objT.Field(i), objT, fName); err != nil {

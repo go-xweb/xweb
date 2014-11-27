@@ -48,7 +48,7 @@ func (c *MainAction) Get() {
 
 func main() {
 	xweb.AddAction(&MainAction{})
-	xweb.RootApp().AppConfig.CheckXrsf = false
+	xweb.RootApp().AppConfig.CheckXsrf = false
 	go xweb.Run("0.0.0.0:9999")
 
 	values := url.Values{"key": {"Value"}, "id": {"123"},

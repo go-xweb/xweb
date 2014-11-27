@@ -66,10 +66,15 @@ Struct Tag Use:
 		Email string `valid:"Required;Match(/^\\w+@coscms\\.com$/)"`
 		Addr  string `valid:"Required"`
 	}
+	type NotValid struct {
+		A string
+		B string
+	}
 	type Group struct {
 		Id   int
 		User
 		*Profile
+		NotValid `valid:"-"` //valid标签设为“-”，意味着跳过此项不查询其成员
 	}
 
 	func main() {
@@ -87,7 +92,11 @@ Struct Tag Use:
 
 		valid.Clear()
 
-		u := Group{User:User{Name: "test", Age: 40},Profile:&Profile{Email:"test@coscms.com",Addr:"address"}}
+		u := Group{
+			User:           User{Name: "test", Age: 40},
+			Profile:        &Profile{Email:"test@coscms.com",Addr:"address"},
+			NotValid:       NotValid{},
+		}
 		b, err := valid.Valid(u) //检查所有字段
 		//b, err := valid.Valid(u, "User.Name", "Profile.Email") //检查指定字段
 		if err != nil {
@@ -101,6 +110,7 @@ Struct Tag Use:
 
 Struct Tag Functions:
 
+	-
 	Required
 	Min(min int)
 	Max(max int)

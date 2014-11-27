@@ -62,7 +62,7 @@ type AppConfig struct {
 	StaticFileVersion bool
 	CacheTemplates    bool
 	ReloadTemplates   bool
-	CheckXrsf         bool
+	CheckXsrf         bool
 	SessionTimeout    time.Duration
 	FormMapToStruct   bool //[SWH|+]
 	EnableHttpCache   bool //[SWH|+]
@@ -98,7 +98,7 @@ func NewApp(args ...string) *App {
 			StaticFileVersion: true,
 			CacheTemplates:    true,
 			ReloadTemplates:   true,
-			CheckXrsf:         true,
+			CheckXsrf:         true,
 			FormMapToStruct:   true,
 		},
 		Config:          map[string]interface{}{},
@@ -470,7 +470,7 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 		f:              T{},
 		Option: &ActionOption{
 			AutoMapForm: a.AppConfig.FormMapToStruct,
-			CheckXrsf:   a.AppConfig.CheckXrsf,
+			CheckXsrf:   a.AppConfig.CheckXsrf,
 		},
 	}
 
@@ -501,7 +501,7 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 		a.StructMap(vc.Elem(), req)
 	}
 
-	if c.Option.CheckXrsf && req.Method == "POST" {
+	if c.Option.CheckXsrf && req.Method == "POST" {
 		res, err := req.Cookie(XSRF_TAG)
 		formVals := req.Form[XSRF_TAG]
 		var formVal string
@@ -509,8 +509,8 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 			formVal = formVals[0]
 		}
 		if err != nil || res.Value == "" || res.Value != formVal {
-			a.error(w, 500, "xrsf token error.")
-			a.Error("xrsf token error.")
+			a.error(w, 500, "xsrf token error.")
+			a.Error("xsrf token error.")
 			statusCode = 500
 			isBreak = true
 			return
