@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/go-xweb/log"
 )
@@ -35,7 +35,7 @@ func Download(w http.ResponseWriter, fpath string) error {
 	}
 	defer f.Close()
 
-	fName := fpath[len(path.Dir(fpath))+1:]
+	fName := filepath.Base(fpath)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fName))
 	_, err = io.Copy(w, f)
 	return err
