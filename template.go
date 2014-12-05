@@ -19,7 +19,7 @@ func IsNil(a interface{}) bool {
 		return true
 	}
 	aa := reflect.ValueOf(a)
-	return !aa.IsValid() || aa.IsNil()
+	return !aa.IsValid() || (aa.Type().Kind() == reflect.Ptr && aa.IsNil())
 }
 
 func Add(left interface{}, right interface{}) interface{} {
