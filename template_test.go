@@ -20,6 +20,10 @@ func TestIsNil(t *testing.T) {
 
 	var a A
 
+	if IsNil(a) {
+		t.Error("a0")
+	}
+
 	if IsNil(&a) {
 		t.Error("a")
 	}
@@ -31,5 +35,10 @@ func TestIsNil(t *testing.T) {
 	var b *A
 	if !IsNil(b) {
 		t.Error("b")
+	}
+
+	var c interface{}
+	if !IsNil(c) {
+		t.Error("c")
 	}
 }
