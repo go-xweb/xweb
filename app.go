@@ -10,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -45,6 +44,7 @@ type App struct {
 	StaticVerMgr    *StaticVerMgr
 	TemplateMgr     *TemplateMgr
 	ContentEncoding string
+	interceptors    []Interceptor
 }
 
 const (
@@ -66,14 +66,6 @@ type AppConfig struct {
 	SessionTimeout    time.Duration
 	FormMapToStruct   bool //[SWH|+]
 	EnableHttpCache   bool //[SWH|+]
-}
-
-type Route struct {
-	Path           string          //path string
-	CompiledRegexp *regexp.Regexp  //path regexp
-	HttpMethods    map[string]bool //GET POST HEAD DELETE etc.
-	HandlerMethod  string          //struct method name
-	HandlerElement reflect.Type    //handler element
 }
 
 func NewApp(args ...string) *App {
@@ -110,18 +102,46 @@ func NewApp(args ...string) *App {
 		filters:         make([]Filter, 0),
 		StaticVerMgr:    new(StaticVerMgr),
 		TemplateMgr:     new(TemplateMgr),
+		interceptors:    make([]Interceptor, 0),
 	}
 }
 
+func (a *App) Use(interceptors ...Interceptor) {
+	a.interceptors = append(a.interceptors, interceptors...)
+}
+
 func (a *App) initApp() {
+	a.Use(&StaticInterceptor{
+		RootPath: a.AppConfig.StaticDir,
+		IndexFiles: []string{
+			"index.html",
+			"index.htm",
+		},
+	})
+
+	a.Use(&InitInterceptor{},
+		&BeforeInterceptor{},
+		&AfterInterceptor{},
+	)
+
+	if a.AppConfig.FormMapToStruct {
+		a.Use(&BindInterceptor{})
+	}
+
 	if a.AppConfig.StaticFileVersion {
 		a.StaticVerMgr.Init(a, a.AppConfig.StaticDir)
+		a.FuncMaps["StaticUrl"] = a.StaticUrl
 	}
+
 	if a.AppConfig.CacheTemplates {
 		a.TemplateMgr.Init(a, a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
 	}
-	a.FuncMaps["StaticUrl"] = a.StaticUrl
-	a.FuncMaps["XsrfName"] = XsrfName
+
+	if a.AppConfig.CheckXsrf {
+		a.Use(&XsrfInterceptor{})
+		a.FuncMaps["XsrfName"] = XsrfName
+	}
+
 	a.VarMaps["XwebVer"] = Version
 
 	if a.AppConfig.SessionOn {
@@ -165,25 +185,6 @@ func (app *App) GetConfig(name string) interface{} {
 	return app.Config[name]
 }
 
-func (app *App) AddAction(cs ...interface{}) {
-	for _, c := range cs {
-		app.AddRouter(app.BasePath, c)
-	}
-}
-
-func (app *App) AutoAction(cs ...interface{}) {
-	for _, c := range cs {
-		t := reflect.Indirect(reflect.ValueOf(c)).Type()
-		name := t.Name()
-		if strings.HasSuffix(name, "Action") {
-			path := strings.ToLower(name[:len(name)-6])
-			app.AddRouter(JoinPath(app.BasePath, path), c)
-		} else {
-			app.Warn("AutoAction needs a named ends with Action")
-		}
-	}
-}
-
 func (app *App) AddTmplVar(name string, varOrFun interface{}) {
 	if reflect.TypeOf(varOrFun).Kind() == reflect.Func {
 		app.FuncMaps[name] = varOrFun
@@ -196,10 +197,6 @@ func (app *App) AddTmplVars(t *T) {
 	for name, value := range *t {
 		app.AddTmplVar(name, value)
 	}
-}
-
-func (app *App) AddFilter(filter Filter) {
-	app.filters = append(app.filters, filter)
 }
 
 func (app *App) Debug(params ...interface{}) {
@@ -265,92 +262,6 @@ func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 	return true
 }
 
-func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
-	cr, err := regexp.Compile(r)
-	if err != nil {
-		a.Errorf("Error in route regex %q: %s", r, err)
-		return
-	}
-	a.Routes = append(a.Routes, Route{Path: r, CompiledRegexp: cr, HttpMethods: methods, HandlerMethod: handler, HandlerElement: t})
-}
-
-func (a *App) addEqRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
-	if _, ok := a.RoutesEq[r]; !ok {
-		a.RoutesEq[r] = make(map[string]Route)
-	}
-	for v, _ := range methods {
-		a.RoutesEq[r][v] = Route{HandlerMethod: handler, HandlerElement: t}
-	}
-}
-
-var (
-	mapperType = reflect.TypeOf(Mapper{})
-)
-
-func (app *App) AddRouter(url string, c interface{}) {
-	t := reflect.TypeOf(c).Elem()
-	app.ActionsPath[t] = url
-	app.Actions[t.Name()] = c
-	app.ActionsNamePath[t.Name()] = url
-	for i := 0; i < t.NumField(); i++ {
-		if t.Field(i).Type != mapperType {
-			continue
-		}
-		name := t.Field(i).Name
-		a := strings.Title(name)
-		v := reflect.ValueOf(c).MethodByName(a)
-		if !v.IsValid() {
-			continue
-		}
-
-		tag := t.Field(i).Tag
-		tagStr := tag.Get("xweb")
-		methods := map[string]bool{"GET": true, "POST": true}
-		var p string
-		var isEq bool
-		if tagStr != "" {
-			tags := strings.Split(tagStr, " ")
-			path := tagStr
-			length := len(tags)
-			if length >= 2 {
-				for _, method := range strings.Split(tags[0], "|") {
-					methods[strings.ToUpper(method)] = true
-				}
-				path = tags[1]
-				if regexp.QuoteMeta(path) == path {
-					isEq = true
-				}
-			} else if length == 1 {
-				if tags[0][0] == '/' {
-					path = tags[0]
-					if regexp.QuoteMeta(path) == path {
-						isEq = true
-					}
-				} else {
-					for _, method := range strings.Split(tags[0], "|") {
-						methods[strings.ToUpper(method)] = true
-					}
-					path = "/" + name
-					isEq = true
-				}
-			} else {
-				path = "/" + name
-				isEq = true
-			}
-			p = strings.TrimRight(url, "/") + path
-		} else {
-			p = strings.TrimRight(url, "/") + "/" + name
-			isEq = true
-		}
-		if isEq {
-			app.addEqRoute(removeStick(p), methods, t, a)
-		} else {
-			app.addRoute(removeStick(p), methods, t, a)
-		}
-	}
-}
-
-// the main route handler in web.go
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	requestPath := req.URL.Path
 	var statusCode = 0
@@ -378,94 +289,65 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	tm := time.Now().UTC()
 	w.Header().Set("Date", webTime(tm))
 
-	// static files, needed op
-	if req.Method == "GET" || req.Method == "HEAD" {
-		success := a.TryServingFile(requestPath, req, w)
-		if success {
-			statusCode = 200
-			return
-		}
-		if requestPath == "/favicon.ico" {
-			statusCode = 404
-			a.error(w, 404, "Page not found")
-			return
-		}
-	}
-
 	//Set the default content-type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if !a.filter(w, req) {
 		statusCode = 302
 		return
 	}
-	requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
 
-	reqPath := removeStick(requestPath)
-	allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
-	isFind := false
-	if routes, ok := a.RoutesEq[reqPath]; ok {
-		if route, ok := routes[allowMethod]; ok {
+	var ac = ActionContext{}
+	ia := NewInvocation(a.interceptors, req, NewResponseWriter(w), &ac)
+	ac.newAction = func() {
+		requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
+		reqPath := removeStick(requestPath)
+		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
+
+		route, _, isFind := a.findRoute(reqPath, allowMethod)
+		if isFind {
+			ac.route = &route
+			ac.action = a.newAction(ia, route).Interface()
+		}
+	}
+
+	ac.Execute = func() interface{} {
+		requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
+		reqPath := removeStick(requestPath)
+		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
+
+		route, args, isFind := a.findRoute(reqPath, allowMethod)
+
+		if isFind {
 			var isBreak bool = false
-			var args []reflect.Value
-			isBreak, statusCode = a.run(req, w, route, args)
+			isBreak, statusCode = a.run(ia, route, args)
 			if isBreak {
-				return
+				return nil
 			}
-			isFind = true
+			ia.resp.StatusCode = statusCode
 		}
-	}
-	if !isFind {
-		for _, route := range a.Routes {
-			cr := route.CompiledRegexp
-
-			//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
-			if _, ok := route.HttpMethods[allowMethod]; !ok {
-				continue
-			}
-
-			if !cr.MatchString(reqPath) {
-				continue
-			}
-
-			match := cr.FindStringSubmatch(reqPath)
-
-			if len(match[0]) != len(reqPath) {
-				continue
-			}
-
-			var args []reflect.Value
-			for _, arg := range match[1:] {
-				args = append(args, reflect.ValueOf(arg))
-			}
-			var isBreak bool = false
-			isBreak, statusCode = a.run(req, w, route, args)
-			if isBreak {
-				return
-			}
-		}
-	}
-	// try serving index.html or index.htm
-	if req.Method == "GET" || req.Method == "HEAD" {
-		if a.TryServingFile(path.Join(requestPath, "index.html"), req, w) {
-			statusCode = 200
-			return
-		} else if a.TryServingFile(path.Join(requestPath, "index.htm"), req, w) {
-			statusCode = 200
-			return
-		}
+		return nil
 	}
 
-	a.error(w, 404, "Page not found")
-	statusCode = 404
+	ia.Invoke()
+
+	// if no any return status code
+	if !ia.Resp().Written() {
+		a.error(w, http.StatusNotFound, "Page not found")
+		statusCode = http.StatusNotFound
+	} else if ia.Result != nil {
+		ia.HandleResult(ia.Result)
+	}
+
+	// flush the buffer
+	ia.Resp().Flush()
 }
 
-func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []reflect.Value) (isBreak bool, statusCode int) {
-
+func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 	vc := reflect.New(route.HandlerElement)
 	c := &Action{
-		Request:        req,
+		Request:        ia.req,
 		App:            a,
-		ResponseWriter: w,
+		ResponseWriter: ia.resp,
 		T:              T{},
 		f:              T{},
 		Option: &ActionOption{
@@ -479,87 +361,40 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 	}
 
 	fieldA := vc.Elem().FieldByName("Action")
-	//fieldA := fieldByName(vc.Elem(), "Action")
 	if fieldA.IsValid() {
 		fieldA.Set(reflect.ValueOf(c))
 	}
 
 	fieldC := vc.Elem().FieldByName("C")
-	//fieldC := fieldByName(vc.Elem(), "C")
 	if fieldC.IsValid() {
 		fieldC.Set(reflect.ValueOf(vc))
-		//fieldC.Set(vc)
 	}
+	return vc
+}
 
-	initM := vc.MethodByName("Init")
-	if initM.IsValid() {
-		params := []reflect.Value{}
-		initM.Call(params)
-	}
-
-	if c.Option.AutoMapForm {
-		a.StructMap(vc.Elem(), req)
-	}
-
-	if c.Option.CheckXsrf && req.Method == "POST" {
-		res, err := req.Cookie(XSRF_TAG)
-		formVals := req.Form[XSRF_TAG]
-		var formVal string
-		if len(formVals) > 0 {
-			formVal = formVals[0]
-		}
-		if err != nil || res.Value == "" || res.Value != formVal {
-			a.error(w, 500, "xsrf token error.")
-			a.Error("xsrf token error.")
-			statusCode = 500
-			isBreak = true
-			return
-		}
-	}
-
-	//[SWH|+]------------------------------------------Before-Hook
-	structName := reflect.ValueOf(route.HandlerElement.Name())
-	actionName := reflect.ValueOf(route.HandlerMethod)
-	initM = vc.MethodByName("Before")
-	if initM.IsValid() {
-		structAction := []reflect.Value{structName, actionName}
-		if ok := initM.Call(structAction); !ok[0].Bool() {
-			isBreak = true
-			return
-		}
+func (a *App) run(ia *Invocation, route Route, args []reflect.Value) (isBreak bool, statusCode int) {
+	var vc reflect.Value
+	if ia.action.action == nil {
+		vc = a.newAction(ia, route)
+		ia.action.action = vc.Interface()
+	} else {
+		vc = reflect.ValueOf(ia.action.action)
 	}
 
 	ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
 	if err != nil {
 		//there was an error or panic while calling the handler
 		if a.AppConfig.Mode == Debug {
-			a.error(w, 500, fmt.Sprintf("<pre>handler error: %v</pre>", err))
+			a.error(ia.resp, 500, fmt.Sprintf("<pre>handler error: %v</pre>", err))
 		} else if a.AppConfig.Mode == Product {
-			a.error(w, 500, "Server Error")
+			a.error(ia.resp, 500, "Server Error")
 		}
 		statusCode = 500
 		isBreak = true
 		return
 	}
-	statusCode = fieldA.Interface().(*Action).StatusCode
 
-	//[SWH|+]------------------------------------------After-Hook
-	initM = vc.MethodByName("After")
-	if initM.IsValid() {
-		structAction := []reflect.Value{structName, actionName}
-		for _, v := range ret {
-			structAction = append(structAction, v)
-		}
-		if len(structAction) != initM.Type().NumIn() {
-			a.Error("Error : %v.After(): The number of params is not adapted.", structName)
-			isBreak = true
-			return
-		}
-		if ok := initM.Call(structAction); !ok[0].Bool() {
-			isBreak = true
-			return
-		}
-	}
+	//statusCode = fieldA.Interface().(*Action).StatusCode
 
 	if len(ret) == 0 {
 		isBreak = true
@@ -574,12 +409,14 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 		return
 	} else if sval.Kind() == reflect.String {
 		content = []byte(sval.String())
+		statusCode = 200
 	} else if sval.Kind() == reflect.Slice && sval.Type().Elem().Kind() == reflect.Uint8 {
 		content = sval.Interface().([]byte)
+		statusCode = 200
 	} else if err, ok := sval.Interface().(error); ok {
 		if err != nil {
 			a.Error("Error:", err)
-			a.error(w, 500, "Server Error")
+			a.error(ia.resp, 500, "Server Error")
 			statusCode = 500
 		}
 		isBreak = true
@@ -592,8 +429,8 @@ func (a *App) run(req *http.Request, w http.ResponseWriter, route Route, args []
 		return
 	}
 
-	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
-	_, err = w.Write(content)
+	ia.resp.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	_, err = ia.resp.Write(content)
 	if err != nil {
 		a.Error("Error during write: %v", err)
 		statusCode = 500

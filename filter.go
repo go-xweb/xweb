@@ -10,6 +10,10 @@ type Filter interface {
 	Do(http.ResponseWriter, *http.Request) bool
 }
 
+func (app *App) AddFilter(filter Filter) {
+	app.filters = append(app.filters, filter)
+}
+
 type LoginFilter struct {
 	App           *App
 	SessionName   string
