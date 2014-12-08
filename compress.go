@@ -13,6 +13,9 @@ type GZipInterceptor struct {
 func (inter *GZipInterceptor) Intercept(ia *Invocation) {
 	ia.Invoke()
 
+	// for cache server
+	ia.Resp().Header().Add("Vary", "Accept-Encoding")
+
 	isStaticFileToCompress := false
 	if ia.app.Server.Config.StaticExtensionsToGzip != nil && len(ia.app.Server.Config.StaticExtensionsToGzip) > 0 {
 		for _, statExtension := range ia.app.Server.Config.StaticExtensionsToGzip {

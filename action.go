@@ -48,8 +48,7 @@ type Action struct {
 	T            T
 	f            T
 	RootTemplate *template.Template
-	RequestBody  []byte
-	StatusCode   int
+	requestBody  []byte
 }
 
 type Mapper struct {
@@ -209,15 +208,15 @@ func (c *Action) Cookie(key string) string {
 
 // Body returns the raw request body data as bytes.
 func (c *Action) Body() []byte {
-	if len(c.RequestBody) > 0 {
-		return c.RequestBody
+	if len(c.requestBody) > 0 {
+		return c.requestBody
 	}
 
 	requestbody, _ := ioutil.ReadAll(c.Request.Body)
 	c.Request.Body.Close()
 	bf := bytes.NewBuffer(requestbody)
 	c.Request.Body = ioutil.NopCloser(bf)
-	c.RequestBody = requestbody
+	c.requestBody = requestbody
 	return requestbody
 }
 
@@ -278,29 +277,21 @@ func (c *Action) Write(content string, values ...interface{}) error {
 // Once it has been called, any return value from the handler will
 // not be written to the response.
 func (c *Action) Abort(status int, body string) error {
-	c.StatusCode = status
 	return c.App.error(c.ResponseWriter, status, body)
 }
 
 // Redirect is a helper method for 3xx redirects.
 func (c *Action) Redirect(url string, status ...int) error {
-	if len(status) == 0 {
-		c.StatusCode = 302
-	} else {
-		c.StatusCode = status[0]
-	}
 	return c.App.Redirect(c.ResponseWriter, c.Request.URL.Path, url, status...)
 }
 
 // Notmodified writes a 304 HTTP response
 func (c *Action) NotModified() {
-	c.StatusCode = 304
 	c.ResponseWriter.WriteHeader(304)
 }
 
 // NotFound writes a 404 HTTP response
 func (c *Action) NotFound(message string) error {
-	c.StatusCode = 404
 	return c.Abort(404, message)
 }
 
@@ -591,7 +582,6 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 					}
 				}
 				err = c.SetBody(tplcontent) //[SWH|+]
-				//_, err = c.ResponseWriter.Write(tplcontent)
 			}
 		}
 	}

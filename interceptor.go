@@ -75,23 +75,24 @@ func (invocation *Invocation) HandleResult(result interface{}) bool {
 		return false
 	}
 
+	if invocation.resp.Written() {
+		return true
+	}
+
 	if err, ok := result.(AbortError); ok {
-		if !invocation.resp.Written() {
-			invocation.resp.WriteHeader(err.Code())
-			invocation.resp.Write([]byte(err.Error()))
-		}
+		invocation.resp.WriteHeader(err.Code())
+		invocation.resp.Write([]byte(err.Error()))
+		return true
 	} else if err, ok := result.(error); ok {
-		if !invocation.resp.Written() {
-			invocation.resp.WriteHeader(http.StatusInternalServerError)
-			invocation.resp.Write([]byte(err.Error()))
-		} else {
-			// TODO: log the error
-		}
+		invocation.resp.WriteHeader(http.StatusInternalServerError)
+		invocation.resp.Write([]byte(err.Error()))
 		return true
 	} else if bs, ok := result.([]byte); ok {
+		invocation.resp.WriteHeader(http.StatusOK)
 		invocation.resp.Write(bs)
 		return true
 	} else if s, ok := result.(string); ok {
+		invocation.resp.WriteHeader(http.StatusOK)
 		invocation.resp.Write([]byte(s))
 		return true
 	}
