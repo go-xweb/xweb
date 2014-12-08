@@ -28,7 +28,6 @@ type ServerConfig struct {
 	Url                    string
 	UrlPrefix              string
 	UrlSuffix              string
-	StaticHtmlDir          string
 	SessionTimeout         time.Duration
 }
 
@@ -57,11 +56,11 @@ func NewServer(args ...string) *Server {
 		ServerNumber++
 	}
 	s := &Server{
-		Config:  Config,
-		Env:     map[string]interface{}{},
-		Apps:    map[string]*App{},
+		Config:       Config,
+		Env:          map[string]interface{}{},
+		Apps:         map[string]*App{},
 		AppsNamePath: map[string]string{},
-		Name:    name,
+		Name:         name,
 	}
 	Servers[s.Name] = s
 

@@ -10,8 +10,27 @@ type Filter interface {
 	Do(http.ResponseWriter, *http.Request) bool
 }
 
+func NewFilterInterceptor(filter Filter) *FilterInterceptor {
+	return &FilterInterceptor{filter: filter}
+}
+
+type FilterInterceptor struct {
+	filter Filter
+}
+
+func (itor *FilterInterceptor) Intercept(ia *Invocation) {
+	if itor.filter != nil {
+		if !itor.filter.Do(ia.Resp(), ia.Req()) {
+			return
+		}
+	}
+
+	ia.Invoke()
+}
+
 func (app *App) AddFilter(filter Filter) {
-	app.filters = append(app.filters, filter)
+	app.interceptors = append(app.interceptors, NewFilterInterceptor(filter))
+	//app.filters = append(app.filters, filter)
 }
 
 type LoginFilter struct {

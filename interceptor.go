@@ -6,8 +6,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-
-	"github.com/go-xweb/httpsession"
 )
 
 type Interceptor interface {
@@ -15,13 +13,12 @@ type Interceptor interface {
 }
 
 type Invocation struct {
-	app            *App
-	interceptors   []Interceptor
-	idx            int
-	action         *ActionContext
-	req            *http.Request
-	resp           *ResponseWriter
-	SessionManager *httpsession.Manager
+	app          *App
+	interceptors []Interceptor
+	idx          int
+	action       *ActionContext
+	req          *http.Request
+	resp         *ResponseWriter
 
 	Result interface{}
 }

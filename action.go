@@ -7,8 +7,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"html/template"
@@ -46,6 +44,7 @@ type Action struct {
 	*ResponseWriter
 	C            reflect.Value
 	session      *httpsession.Session
+	logger       *log.Logger
 	T            T
 	f            T
 	RootTemplate *template.Template
@@ -676,6 +675,7 @@ func (c *Action) AddTmplVars(t *T) {
 	}
 }
 
+/*
 func (c *Action) ServeJson(obj interface{}) {
 	content, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
@@ -701,7 +701,7 @@ func (c *Action) ServeXml(obj interface{}) {
 func (c *Action) ServeFile(fpath string) {
 	c.ResponseWriter.Header().Del("Content-Type")
 	http.ServeFile(c.ResponseWriter, c.Request, fpath)
-}
+}*/
 
 func (c *Action) GetSlice(key string) []string {
 	return c.Request.Form[key]
@@ -735,10 +735,6 @@ func (c *Action) GetFile(key string) (multipart.File, *multipart.FileHeader, err
 	return c.Request.FormFile(key)
 }
 
-func (c *Action) GetLogger() *log.Logger {
-	return c.App.Logger
-}
-
 func (c *Action) SaveToFile(fromfile, tofile string) error {
 	file, _, err := c.Request.FormFile(fromfile)
 	if err != nil {
@@ -754,10 +750,30 @@ func (c *Action) SaveToFile(fromfile, tofile string) error {
 	return err
 }
 
+// @inject
+func (c *Action) SetRequest(req *http.Request) {
+	c.Request = req
+}
+
+func (c *Action) SetResponse(resp *ResponseWriter) {
+	c.ResponseWriter = resp
+}
+
+// @inject
+func (c *Action) SetLogger(logger *log.Logger) {
+	c.logger = logger
+}
+
+func (c *Action) GetLogger() *log.Logger {
+	return c.logger
+}
+
+// @inject
+func (c *Action) SetSessions(session *httpsession.Session) {
+	c.session = session
+}
+
 func (c *Action) Session() *httpsession.Session {
-	if c.session == nil {
-		c.session = c.App.SessionManager.Session(c.Request, c.ResponseWriter)
-	}
 	return c.session
 }
 

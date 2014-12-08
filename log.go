@@ -1,9 +1,22 @@
 package xweb
 
+import "github.com/go-xweb/log"
+
+type LogInterface interface {
+	SetLogger(*log.Logger)
+}
+
 type LogInterceptor struct {
 }
 
 func (itor *LogInterceptor) Intercept(ai *Invocation) {
+	action := ai.ActionContext().Action()
+	if action != nil {
+		if l, ok := action.(LogInterface); ok {
+			l.SetLogger(ai.app.Logger)
+		}
+	}
+
 	ai.Invoke()
 
 	if ai.Resp().Written() {

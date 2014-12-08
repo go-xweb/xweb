@@ -18,11 +18,11 @@ import (
 )
 
 type App struct {
-	BasePath        string
-	Name            string //[SWH|+]
-	Routes          []Route
-	RoutesEq        map[string]map[string]Route
-	filters         []Filter
+	BasePath string
+	Name     string //[SWH|+]
+	Routes   []Route
+	RoutesEq map[string]map[string]Route
+	//filters         []Filter
 	Server          *Server
 	AppConfig       *AppConfig
 	Config          map[string]interface{}
@@ -92,10 +92,10 @@ func NewApp(args ...string) *App {
 		ActionsNamePath: map[string]string{},
 		FuncMaps:        defaultFuncs,
 		VarMaps:         T{},
-		filters:         make([]Filter, 0),
-		StaticVerMgr:    new(StaticVerMgr),
-		TemplateMgr:     new(TemplateMgr),
-		interceptors:    make([]Interceptor, 0),
+		//filters:         make([]Filter, 0),
+		StaticVerMgr: new(StaticVerMgr),
+		TemplateMgr:  new(TemplateMgr),
+		interceptors: make([]Interceptor, 0),
 	}
 }
 
@@ -161,6 +161,8 @@ func (a *App) initApp() {
 			}
 			a.SessionManager.Run()
 		}
+
+		a.Use(NewSessionInterceptor(a.SessionManager))
 	}
 }
 
@@ -256,6 +258,7 @@ func (app *App) Panicf(format string, params ...interface{}) {
 	app.Logger.Panicf("["+app.Name+"] "+format, params...)
 }
 
+/*
 func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 	for _, filter := range app.filters {
 		if !filter.Do(w, req) {
@@ -263,7 +266,7 @@ func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 		}
 	}
 	return true
-}
+}*/
 
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	//ignore errors from ParseForm because it's usually harmless.
@@ -281,14 +284,14 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	//Set the default content-type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if !a.filter(w, req) {
+	/*if !a.filter(w, req) {
 		a.Info(req.Method, 302, req.URL.Path)
 		return
-	}
+	}*/
 
 	var ac = ActionContext{}
 	ia := NewInvocation(a, a.interceptors, req, NewResponseWriter(w), &ac)
-	ia.SessionManager = a.SessionManager
+
 	ac.newAction = func() {
 		reqPath := removeStick(req.URL.Path)
 		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
@@ -338,24 +341,25 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 	vc := reflect.New(route.HandlerElement)
-	c := &Action{
-		Request:        ia.req,
-		App:            a,
-		ResponseWriter: ia.resp,
-		T:              T{},
-		f:              T{},
-		Option: &ActionOption{
-			AutoMapForm: a.AppConfig.FormMapToStruct,
-			CheckXsrf:   a.AppConfig.CheckXsrf,
-		},
-	}
-
-	for k, v := range a.VarMaps {
-		c.T[k] = v
-	}
 
 	fieldA := vc.Elem().FieldByName("Action")
 	if fieldA.IsValid() {
+		c := &Action{
+			//Request:        ia.req,
+			App: a,
+			//ResponseWriter: ia.resp,
+			T: T{},
+			f: T{},
+			Option: &ActionOption{
+				AutoMapForm: a.AppConfig.FormMapToStruct,
+				CheckXsrf:   a.AppConfig.CheckXsrf,
+			},
+		}
+
+		for k, v := range a.VarMaps {
+			c.T[k] = v
+		}
+
 		fieldA.Set(reflect.ValueOf(c))
 	}
 
