@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -270,8 +269,6 @@ func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
 }
 
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
-	requestPath := req.URL.Path
-
 	//ignore errors from ParseForm because it's usually harmless.
 	ct := req.Header.Get("Content-Type")
 	if strings.Contains(ct, "multipart/form-data") {
@@ -288,7 +285,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	//Set the default content-type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if !a.filter(w, req) {
-		a.Info(req.Method, 302, requestPath)
+		a.Info(req.Method, 302, req.URL.Path)
 		return
 	}
 
@@ -296,8 +293,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	ia := NewInvocation(a, a.interceptors, req, NewResponseWriter(w), &ac)
 	ia.SessionManager = a.SessionManager
 	ac.newAction = func() {
-		requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
-		reqPath := removeStick(requestPath)
+		reqPath := removeStick(req.URL.Path)
 		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
 
 		route, _, isFind := a.findRoute(reqPath, allowMethod)
@@ -308,16 +304,33 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	}
 
 	ac.Execute = func() interface{} {
-		requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
-		reqPath := removeStick(requestPath)
+		reqPath := removeStick(req.URL.Path)
 		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
 
 		route, args, isFind := a.findRoute(reqPath, allowMethod)
-
-		if isFind {
-			a.run(ia, route, args)
+		if !isFind {
+			return nil
 		}
-		return ia.Result
+
+		var vc reflect.Value
+		if ia.action.action == nil {
+			vc = a.newAction(ia, route)
+			ia.action.action = vc.Interface()
+		} else {
+			vc = reflect.ValueOf(ia.action.action)
+		}
+
+		ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
+		if err != nil {
+			return err
+		}
+
+		if len(ret) > 0 {
+			return ret[0].Interface()
+		} else {
+			// if action return nil and not write to response, then return blank
+			return ""
+		}
 	}
 
 	ia.Invoke()
@@ -354,33 +367,6 @@ func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 		fieldC.Set(reflect.ValueOf(vc))
 	}
 	return vc
-}
-
-func (a *App) run(ia *Invocation, route Route, args []reflect.Value) {
-	var vc reflect.Value
-	if ia.action.action == nil {
-		vc = a.newAction(ia, route)
-		ia.action.action = vc.Interface()
-	} else {
-		vc = reflect.ValueOf(ia.action.action)
-	}
-
-	ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
-	if err != nil {
-		//there was an error or panic while calling the handler
-		/*if a.AppConfig.Mode == Debug {
-			a.error(ia.resp, 500, fmt.Sprintf("<pre>handler error: %v</pre>", err))
-		} else if a.AppConfig.Mode == Product {
-			a.error(ia.resp, 500, "Server Error")
-		}*/
-
-		ia.Result = err
-		return
-	}
-
-	if len(ret) > 0 {
-		ia.Result = ret[0].Interface()
-	}
 }
 
 func (a *App) error(w http.ResponseWriter, status int, content string) error {
@@ -462,7 +448,7 @@ func (a *App) InitHeadContent(w http.ResponseWriter, contentLength int64) {
 
 // tryServingFile attempts to serve a static file, and returns
 // whether or not the operation is successful.
-func (a *App) TryServingFile(name string, req *http.Request, w http.ResponseWriter) bool {
+/*func (a *App) TryServingFile(name string, req *http.Request, w http.ResponseWriter) bool {
 	newPath := name
 	if strings.HasPrefix(name, a.BasePath) {
 		newPath = name[len(a.BasePath):]
@@ -496,7 +482,7 @@ func (a *App) TryServingFile(name string, req *http.Request, w http.ResponseWrit
 		return true
 	}
 	return false
-}
+}*/
 
 var (
 	sc *Action = &Action{}

@@ -21,6 +21,7 @@ func (a *BindAction) Execute() string {
 }
 
 func TestBind(t *testing.T) {
+	xweb.MainServer().Config.EnableGzip = false
 	xweb.AddAction(new(BindAction))
 	go func() {
 		xweb.Run("0.0.0.0:9997")

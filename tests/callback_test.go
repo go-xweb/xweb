@@ -44,6 +44,7 @@ func (*TestAction) After(structName, actionName string, result interface{}) bool
 }
 
 func TestCallback(t *testing.T) {
+	xweb.MainServer().Config.EnableGzip = false
 	xweb.AddAction(new(TestAction))
 	go func() {
 		xweb.Run("0.0.0.0:9998")

@@ -39,6 +39,7 @@ func (a *InjectAction) Execute() string {
 }
 
 func TestInject(t *testing.T) {
+	xweb.MainServer().Config.EnableGzip = false
 	xweb.AddAction(new(InjectAction))
 	go func() {
 		xweb.Run("0.0.0.0:9995")

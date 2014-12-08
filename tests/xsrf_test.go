@@ -10,6 +10,7 @@ import (
 )
 
 func TestXsrf(t *testing.T) {
+	xweb.MainServer().Config.EnableGzip = false
 	xweb.RootApp().AppConfig.CheckXsrf = true
 	xweb.AddAction(new(BindAction))
 	go func() {

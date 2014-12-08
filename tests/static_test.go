@@ -33,6 +33,7 @@ func gzipDecode(src []byte) ([]byte, error) {
 func TestStatic(t *testing.T) {
 	os.RemoveAll("./static/")
 	os.MkdirAll("./static/", os.ModePerm)
+	defer os.RemoveAll("./static/")
 	f, err := os.Create("./static/a.html")
 	if err != nil {
 		t.Error(err)
@@ -106,6 +107,7 @@ func TestStatic(t *testing.T) {
 	}
 
 	os.MkdirAll("./static/test/", os.ModePerm)
+	defer os.RemoveAll("./static/tests/")
 	f, err = os.Create("./static/test/index.html")
 	if err != nil {
 		t.Error(err)
