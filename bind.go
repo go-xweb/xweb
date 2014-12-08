@@ -1,6 +1,7 @@
 package xweb
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -10,6 +11,17 @@ import (
 
 	"github.com/go-xweb/log"
 )
+
+// a struct implements this interface can be convert from request param to a struct
+type FromConversion interface {
+	FromString(content string) error
+}
+
+// a struct implements this interface can be convert from struct to template variable
+// Not Implemented
+type ToConversion interface {
+	ToString() string
+}
 
 type BindInterceptor struct {
 }
@@ -21,6 +33,45 @@ func (inter *BindInterceptor) Intercept(ai *Invocation) {
 		namedStructMap(log.Std, vc.Elem(), ai.req, "")
 	}
 	ai.Invoke()
+}
+
+// user[name][test]
+func splitJson(s string) ([]string, error) {
+	res := make([]string, 0)
+	var begin, end int
+	var isleft bool
+	for i, r := range s {
+		switch r {
+		case '[':
+			isleft = true
+			if i > 0 && s[i-1] != ']' {
+				if begin == end {
+					return nil, errors.New("unknow character")
+				}
+				res = append(res, s[begin:end+1])
+			}
+			begin = i + 1
+			end = begin
+		case ']':
+			if !isleft {
+				return nil, errors.New("unknow character")
+			}
+			isleft = false
+			if begin != end {
+				//return nil, errors.New("unknow character")
+
+				res = append(res, s[begin:end+1])
+				begin = i + 1
+				end = begin
+			}
+		default:
+			end = i
+		}
+		if i == len(s)-1 && begin != end {
+			res = append(res, s[begin:end+1])
+		}
+	}
+	return res, nil
 }
 
 func namedStructMap(logger *log.Logger, vc reflect.Value, r *http.Request, topName string) error {
@@ -40,7 +91,7 @@ func namedStructMap(logger *log.Logger, vc reflect.Value, r *http.Request, topNa
 		names := strings.Split(k, ".")
 		var err error
 		if len(names) == 1 {
-			names, err = SplitJson(k)
+			names, err = splitJson(k)
 			if err != nil {
 				logger.Warn("Unrecognize form key", k, err)
 				continue

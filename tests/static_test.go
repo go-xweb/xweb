@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"bytes"
+	"compress/gzip"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -10,6 +12,23 @@ import (
 )
 
 var content = "test"
+
+func gzipDecode(src []byte) ([]byte, error) {
+	rd := bytes.NewReader(src)
+	b, err := gzip.NewReader(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	defer b.Close()
+
+	data, err := ioutil.ReadAll(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
 
 func TestStatic(t *testing.T) {
 	os.RemoveAll("./static/")
@@ -39,10 +58,21 @@ func TestStatic(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	//fmt.Println("a.html resp body:", string(bs))
 
-	if string(bs) != content {
-		t.Error("content is not equeal")
+	var output string
+	if xweb.MainServer().Config.EnableGzip {
+		data, err := gzipDecode(bs)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		output = string(data)
+	} else {
+		output = string(bs)
+	}
+
+	if output != content {
+		t.Error("content is not equeal", output)
 		return
 	}
 
@@ -58,10 +88,20 @@ func TestStatic(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	//fmt.Println("b.html resp body:", string(bs))
 
-	if string(bs) == content {
-		t.Error("content is equeal")
+	if xweb.MainServer().Config.EnableGzip {
+		data, err := gzipDecode(bs)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		output = string(data)
+	} else {
+		output = string(bs)
+	}
+
+	if output == content {
+		t.Error("content is equeal", string(bs), output)
 		return
 	}
 
@@ -88,8 +128,19 @@ func TestStatic(t *testing.T) {
 		return
 	}
 
-	if string(bs) != content {
-		t.Error("content is not equeal")
+	if xweb.MainServer().Config.EnableGzip {
+		data, err := gzipDecode(bs)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		output = string(data)
+	} else {
+		output = string(bs)
+	}
+
+	if output != content {
+		t.Error("content is not equeal", string(bs), output)
 		return
 	}
 }

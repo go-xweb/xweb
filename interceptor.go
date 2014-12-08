@@ -15,6 +15,7 @@ type Interceptor interface {
 }
 
 type Invocation struct {
+	app            *App
 	interceptors   []Interceptor
 	idx            int
 	action         *ActionContext
@@ -25,9 +26,10 @@ type Invocation struct {
 	Result interface{}
 }
 
-func NewInvocation(interceptors []Interceptor, req *http.Request,
+func NewInvocation(app *App, interceptors []Interceptor, req *http.Request,
 	resp *ResponseWriter, ac *ActionContext) *Invocation {
 	return &Invocation{
+		app:          app,
 		interceptors: interceptors,
 		idx:          -1,
 		action:       ac,
@@ -209,4 +211,20 @@ func (itor *InitInterceptor) Intercept(ai *Invocation) {
 		init.Init()
 	}
 	ai.Invoke()
+}
+
+// handle return values
+type ReturnInterceptor struct {
+}
+
+func (itor *ReturnInterceptor) Intercept(ai *Invocation) {
+	ai.Invoke()
+
+	// if no any return status code
+	if !ai.Resp().Written() {
+		if ai.Result == nil {
+			ai.Result = NotFound()
+		}
+		ai.HandleResult(ai.Result)
+	}
 }

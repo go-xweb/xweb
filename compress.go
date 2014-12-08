@@ -16,7 +16,6 @@ func (inter *GZipInterceptor) Intercept(ia *Invocation) {
 	if ia.Req().Header.Get("Accept-Encoding") != "" {
 		splitted := strings.SplitN(ia.Req().Header.Get("Accept-Encoding"), ",", -1)
 		encodings := make([]string, len(splitted))
-
 		for i, val := range splitted {
 			encodings[i] = strings.TrimSpace(val)
 		}
@@ -31,6 +30,10 @@ func (inter *GZipInterceptor) Intercept(ia *Invocation) {
 				writer, _ = flate.NewWriter(ia.Resp(), flate.BestSpeed)
 				break
 			}
+		}
+
+		if writer == nil {
+			return
 		}
 
 		var buffer = ia.Resp().buffer

@@ -60,10 +60,6 @@ type Mapper struct {
 
 type T map[string]interface{}
 
-func XsrfName() string {
-	return XSRF_TAG
-}
-
 //[SWH|+]:
 // Protocol returns request protocol name, such as HTTP/1.1 .
 func (c *Action) Protocol() string {
@@ -394,7 +390,7 @@ func (c *Action) MapForm(st interface{}, names ...string) error {
 	} else {
 		name = names[0]
 	}
-	return c.App.namedStructMap(v.Elem(), c.Request, name)
+	return namedStructMap(c.GetLogger(), v.Elem(), c.Request, name)
 }
 
 // ContentType sets the Content-Type header for an HTTP response.

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-xweb/xweb"
 )
@@ -18,17 +18,28 @@ func (a *TestAction) Execute() string {
 	return "sssss"
 }
 
+var outputsEq = []string{
+	"------> init",
+	"------> before TestAction Execute",
+	"------> after TestAction Execute",
+}
+
+var outputs = make([]string, 0)
+
 func (*TestAction) Init() {
 	fmt.Println("------> init")
+	outputs = append(outputs, "------> init")
 }
 
 func (*TestAction) Before(structName, actionName string) bool {
 	fmt.Println("------> before", structName, actionName)
+	outputs = append(outputs, fmt.Sprintf("------> before %s %s", structName, actionName))
 	return true
 }
 
 func (*TestAction) After(structName, actionName string, result interface{}) bool {
 	fmt.Println("------> after", structName, actionName)
+	outputs = append(outputs, fmt.Sprintf("------> after %s %s", structName, actionName))
 	return true
 }
 
@@ -53,5 +64,7 @@ func TestCallback(t *testing.T) {
 
 	fmt.Println("/ resp body:", string(bs))
 
-	time.Sleep(time.Minute)
+	if strings.Join(outputsEq, "") != strings.Join(outputs, "") {
+		t.Error("should equal", outputsEq, outputs)
+	}
 }
