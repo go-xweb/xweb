@@ -760,6 +760,11 @@ func (c *Action) SetResponse(resp *ResponseWriter) {
 }
 
 // @inject
+func (c *Action) SetApp(app *App) {
+	c.App = app
+}
+
+// @inject
 func (c *Action) SetLogger(logger *log.Logger) {
 	c.logger = logger
 }

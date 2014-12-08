@@ -345,9 +345,6 @@ func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 	fieldA := vc.Elem().FieldByName("Action")
 	if fieldA.IsValid() {
 		c := &Action{
-			//Request:        ia.req,
-			App: a,
-			//ResponseWriter: ia.resp,
 			T: T{},
 			f: T{},
 			Option: &ActionOption{

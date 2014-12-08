@@ -14,7 +14,13 @@ type InjectAction struct {
 	session  *httpsession.Session
 	request  *http.Request
 	response *xweb.ResponseWriter
+	app      *xweb.App
 	callthis string
+}
+
+func (a *InjectAction) SetApp(app *xweb.App) {
+	fmt.Println("call setapp")
+	a.app = app
 }
 
 func (a *InjectAction) SetSessions(session *httpsession.Session) {
