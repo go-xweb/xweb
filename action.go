@@ -755,6 +755,7 @@ func (c *Action) SetRequest(req *http.Request) {
 	c.Request = req
 }
 
+// @inject
 func (c *Action) SetResponse(resp *ResponseWriter) {
 	c.ResponseWriter = resp
 }

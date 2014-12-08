@@ -1,7 +1,6 @@
 package xweb
 
 import (
-	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -9,7 +8,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"runtime"
 	"strings"
 	"time"
 
@@ -92,10 +90,9 @@ func NewApp(args ...string) *App {
 		ActionsNamePath: map[string]string{},
 		FuncMaps:        defaultFuncs,
 		VarMaps:         T{},
-		//filters:         make([]Filter, 0),
-		StaticVerMgr: new(StaticVerMgr),
-		TemplateMgr:  new(TemplateMgr),
-		interceptors: make([]Interceptor, 0),
+		StaticVerMgr:    new(StaticVerMgr),
+		TemplateMgr:     new(TemplateMgr),
+		interceptors:    make([]Interceptor, 0),
 	}
 }
 
@@ -109,13 +106,13 @@ func (a *App) initApp() {
 	}
 
 	a.Use(&LogInterceptor{})
+	a.Use(NewPanicInterceptor(a.AppConfig.Mode == Debug))
 
 	if a.Server.Config.EnableGzip {
 		a.Use(&GZipInterceptor{})
 	}
 
 	a.Use(&ReturnInterceptor{})
-
 	a.Use(&StaticInterceptor{
 		RootPath: a.AppConfig.StaticDir,
 		IndexFiles: []string{
@@ -320,17 +317,13 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 			vc = reflect.ValueOf(ia.action.action)
 		}
 
-		ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
-		if err != nil {
-			return err
-		}
+		function := vc.MethodByName(route.HandlerMethod)
+		ret := function.Call(args)
 
 		if len(ret) > 0 {
 			return ret[0].Interface()
-		} else {
-			// if action return nil and not write to response, then return blank
-			return ""
 		}
+		return nil
 	}
 
 	ia.Invoke()
@@ -401,36 +394,6 @@ func (a *App) StaticUrl(url string) string {
 		return path.Join(basePath, url)
 	}
 	return path.Join(basePath, url+"?v="+ver)
-}
-
-// safelyCall invokes `function` in recover block
-func (a *App) SafelyCall(vc reflect.Value, method string, args []reflect.Value) (resp []reflect.Value, err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			if !a.Server.Config.RecoverPanic {
-				// go back to panic
-				panic(e)
-			} else {
-				resp = nil
-				var content string
-				content = fmt.Sprintf("Handler crashed with error: %v", e)
-				for i := 1; ; i += 1 {
-					_, file, line, ok := runtime.Caller(i)
-					if !ok {
-						break
-					} else {
-						content += "\n"
-					}
-					content += fmt.Sprintf("%v %v", file, line)
-				}
-				a.Error(content)
-				err = errors.New(content)
-				return
-			}
-		}
-	}()
-	function := vc.MethodByName(method)
-	return function.Call(args), err
 }
 
 var (
