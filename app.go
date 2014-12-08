@@ -437,7 +437,13 @@ var (
 )
 
 func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status ...int) error {
-	err := redirect(w, url, status...)
+	s := 302
+	if len(status) > 0 {
+		s = status[0]
+	}
+	w.Header().Set("Location", url)
+	w.WriteHeader(s)
+	_, err := w.Write([]byte("Redirecting to: " + url))
 	if err != nil {
 		app.Errorf("redirect error: %s", err)
 		return err

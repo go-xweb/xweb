@@ -14,7 +14,6 @@ var notice = `
 `
 var form = `
 <form method="POST" action="update">
-  {{XsrfFormHtml}}
   <div class="field">
     <label for="cookie"> Set a cookie: </label>
     <input id="cookie" name="cookie"> </input>
@@ -54,6 +53,7 @@ func (this *CookieAction) Update() {
 }
 
 func main() {
+	xweb.RootApp().AppConfig.CheckXsrf = false
 	xweb.AddAction(&CookieAction{})
 	xweb.Run("0.0.0.0:9999")
 }

@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -293,6 +294,19 @@ func (c *Action) NotModified() {
 // NotFound writes a 404 HTTP response
 func (c *Action) NotFound(message string) error {
 	return c.Abort(404, message)
+}
+
+func (c *Action) Download(fpath string) error {
+	f, err := os.Open(fpath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fName := filepath.Base(fpath)
+	c.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fName))
+	_, err = io.Copy(c.ResponseWriter, f)
+	return err
 }
 
 // ParseStruct mapping forms' name and values to struct's field
@@ -571,7 +585,7 @@ func (c *Action) NamedRender(name, content string, params ...*T) error {
 	tmpl, err := c.RootTemplate.Parse(content)
 	if err == nil {
 		newbytes := bytes.NewBufferString("")
-		err = tmpl.Execute(newbytes, c.C.Elem().Interface())
+		err = tmpl.Execute(newbytes, c.C.Interface())
 		if err == nil {
 			tplcontent, err := ioutil.ReadAll(newbytes)
 			if err == nil {

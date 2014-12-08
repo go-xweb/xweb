@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/go-xweb/xweb"
 )
@@ -57,6 +58,7 @@ func main() {
 		"keys":  {"1", "2", "3"},
 		"keys2": {"1", "2", "3"},
 	}
+	time.Sleep(3 * time.Second)
 	resp, err := http.PostForm("http://127.0.0.1:9999/", values)
 	if err != nil {
 		fmt.Println(err)

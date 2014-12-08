@@ -30,6 +30,9 @@ func (r *ResponseWriter) Header() http.Header {
 }
 
 func (r *ResponseWriter) Write(data []byte) (int, error) {
+	if r.StatusCode == 0 {
+		r.StatusCode = http.StatusOK
+	}
 	r.buffer = append(r.buffer, data...)
 	return len(data), nil
 }
@@ -80,13 +83,20 @@ func (r *ResponseWriter) ServeJson(obj interface{}) error {
 }
 
 func (r *ResponseWriter) Flush() error {
+	//fmt.Println("responsewriter:", r)
+
 	if r.StatusCode == 0 {
 		r.StatusCode = http.StatusOK
 	}
 	r.resp.WriteHeader(r.StatusCode)
 	for key, value := range r.header {
-		for _, v := range value {
-			r.resp.Header().Add(key, v)
+		//fmt.Println("=====", key, value)
+		if len(value) == 1 {
+			r.resp.Header().Set(key, value[0])
+		} else {
+			for _, v := range value {
+				r.resp.Header().Add(key, v)
+			}
 		}
 	}
 
@@ -96,6 +106,7 @@ func (r *ResponseWriter) Flush() error {
 	}
 
 	if flusher, ok := r.resp.(http.Flusher); ok {
+		//fmt.Println("flush------>")
 		flusher.Flush()
 	}
 	return nil

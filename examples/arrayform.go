@@ -40,6 +40,7 @@ func (c *MainAction) Upload() {
 }
 
 func main() {
+	xweb.RootApp().AppConfig.CheckXsrf = false
 	xweb.AddAction(&MainAction{})
 	xweb.Run("0.0.0.0:9999")
 }

@@ -224,7 +224,11 @@ func (itor *ReturnInterceptor) Intercept(ai *Invocation) {
 	// if no any return status code
 	if !ai.Resp().Written() {
 		if ai.Result == nil {
-			ai.Result = NotFound()
+			if ai.ActionContext().Action() == nil {
+				ai.Result = NotFound()
+			} else {
+				ai.Result = ""
+			}
 		}
 		ai.HandleResult(ai.Result)
 	}
