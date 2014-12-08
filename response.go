@@ -11,19 +11,27 @@ import (
 
 type ResponseWriter struct {
 	resp       http.ResponseWriter
+	buffer     []byte
 	StatusCode int
+	header     http.Header
 }
 
 func NewResponseWriter(resp http.ResponseWriter) *ResponseWriter {
-	return &ResponseWriter{resp, 0}
+	return &ResponseWriter{
+		resp:       resp,
+		buffer:     make([]byte, 0),
+		StatusCode: 0,
+		header:     make(map[string][]string),
+	}
 }
 
 func (r *ResponseWriter) Header() http.Header {
-	return r.resp.Header()
+	return r.header
 }
 
 func (r *ResponseWriter) Write(data []byte) (int, error) {
-	return r.resp.Write(data)
+	r.buffer = append(r.buffer, data...)
+	return len(data), nil
 }
 
 func (r *ResponseWriter) Written() bool {
@@ -32,7 +40,6 @@ func (r *ResponseWriter) Written() bool {
 
 func (r *ResponseWriter) WriteHeader(code int) {
 	r.StatusCode = code
-	r.resp.WriteHeader(code)
 }
 
 func (r *ResponseWriter) ServeFile(req *http.Request, path string) error {
@@ -48,7 +55,7 @@ func (r *ResponseWriter) ServeReader(rd io.Reader) error {
 	if err != nil {
 		return err
 	}
-	r.resp.Header().Set("Content-Length", strconv.Itoa(int(ln)))
+	r.Header().Set("Content-Length", strconv.Itoa(int(ln)))
 	return nil
 }
 
@@ -57,7 +64,7 @@ func (r *ResponseWriter) ServeXml(obj interface{}) error {
 	if err != nil {
 		return err
 	}
-	r.resp.Header().Set("Content-Type", "application/xml")
+	r.Header().Set("Content-Type", "application/xml")
 	_, err = r.Write(dt)
 	return err
 }
@@ -67,12 +74,29 @@ func (r *ResponseWriter) ServeJson(obj interface{}) error {
 	if err != nil {
 		return err
 	}
-	r.resp.Header().Set("Content-Type", "application/json")
+	r.Header().Set("Content-Type", "application/json")
 	_, err = r.Write(dt)
 	return err
 }
 
-func (r *ResponseWriter) Flush() {
-	flusher, _ := r.resp.(http.Flusher)
-	flusher.Flush()
+func (r *ResponseWriter) Flush() error {
+	_, err := r.resp.Write(r.buffer)
+	if err != nil {
+		return err
+	}
+
+	if r.StatusCode == 0 {
+		r.StatusCode = http.StatusOK
+	}
+	r.resp.WriteHeader(r.StatusCode)
+	for key, value := range r.header {
+		for _, v := range value {
+			r.resp.Header().Add(key, v)
+		}
+	}
+
+	if flusher, ok := r.resp.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	return nil
 }
