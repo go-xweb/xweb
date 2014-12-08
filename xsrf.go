@@ -1,7 +1,11 @@
 package xweb
 
 import (
+	"fmt"
+	"html/template"
 	"net/http"
+
+	"github.com/go-xweb/uuid"
 )
 
 const (
@@ -31,4 +35,24 @@ func (inter *XsrfInterceptor) Intercept(ia *Invocation) {
 	}
 
 	ia.Invoke()
+}
+
+func (c *Action) XsrfValue() string {
+	var val string = ""
+	cookie, err := c.GetCookie(XSRF_TAG)
+	if err != nil {
+		val = uuid.NewRandom().String()
+		c.SetCookie(NewCookie(XSRF_TAG, val, int64(c.App.AppConfig.SessionTimeout)))
+	} else {
+		val = cookie.Value
+	}
+	return val
+}
+
+func (c *Action) XsrfFormHtml() template.HTML {
+	if c.App.AppConfig.CheckXsrf {
+		return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v" />`,
+			XSRF_TAG, c.XsrfValue()))
+	}
+	return template.HTML("")
 }

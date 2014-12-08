@@ -2,8 +2,6 @@ package xweb
 
 import (
 	"bytes"
-	"compress/flate"
-	"compress/gzip"
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
@@ -29,7 +27,6 @@ import (
 
 	"github.com/go-xweb/httpsession"
 	"github.com/go-xweb/log"
-	"github.com/go-xweb/uuid"
 )
 
 type ActionOption struct {
@@ -45,7 +42,7 @@ type Action struct {
 	Request *http.Request
 	App     *App
 	Option  *ActionOption
-	http.ResponseWriter
+	*ResponseWriter
 	C            reflect.Value
 	session      *httpsession.Session
 	T            T
@@ -258,80 +255,22 @@ func (c *Action) SetBody(content []byte) error {
 	if c.App.AppConfig.EnableHttpCache && c.HttpCache(content) {
 		return nil
 	}
-	output_writer := c.ResponseWriter.(io.Writer)
-	if c.App.Server.Config.EnableGzip == true && c.Header("Accept-Encoding") != "" {
-		splitted := strings.SplitN(c.Header("Accept-Encoding"), ",", -1)
-		encodings := make([]string, len(splitted))
 
-		for i, val := range splitted {
-			encodings[i] = strings.TrimSpace(val)
-		}
-		for _, val := range encodings {
-			if val == "gzip" {
-				c.SetHeader("Content-Encoding", "gzip")
-				output_writer, _ = gzip.NewWriterLevel(c.ResponseWriter, gzip.BestSpeed)
-				break
-			} else if val == "deflate" {
-				c.SetHeader("Content-Encoding", "deflate")
-				output_writer, _ = flate.NewWriter(c.ResponseWriter, flate.BestSpeed)
-				break
-			}
-		}
-	} else {
-		c.SetHeader("Content-Length", strconv.Itoa(len(content)))
-	}
-	_, err := output_writer.Write(content)
-	switch output_writer.(type) {
-	case *gzip.Writer:
-		output_writer.(*gzip.Writer).Close()
-	case *flate.Writer:
-		output_writer.(*flate.Writer).Close()
-	}
+	c.SetHeader("Content-Length", strconv.Itoa(len(content)))
+	_, err := c.ResponseWriter.Write(content)
 	return err
-}
-
-//[SWH|+];
-
-func (c *Action) XsrfValue() string {
-	var val string = ""
-	cookie, err := c.GetCookie(XSRF_TAG)
-	if err != nil {
-		val = uuid.NewRandom().String()
-		c.SetCookie(NewCookie(XSRF_TAG, val, int64(c.App.AppConfig.SessionTimeout)))
-	} else {
-		val = cookie.Value
-	}
-	return val
-}
-
-func (c *Action) XsrfFormHtml() template.HTML {
-	if c.App.AppConfig.CheckXsrf {
-		return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v" />`,
-			XSRF_TAG, c.XsrfValue()))
-	}
-	return template.HTML("")
 }
 
 // WriteString writes string data into the response object.
 func (c *Action) WriteBytes(bytes []byte) error {
-	//_, err := c.ResponseWriter.Write(bytes)
-	err := c.SetBody(bytes) //[SWH|+]
-	if err != nil {
-		c.App.Error("Error during write:", err)
-	}
-	return err
+	return c.SetBody(bytes)
 }
 
 func (c *Action) Write(content string, values ...interface{}) error {
 	if len(values) > 0 {
 		content = fmt.Sprintf(content, values...)
 	}
-	//_, err := c.ResponseWriter.Write([]byte(content))
-	err := c.SetBody([]byte(content)) //[SWH|+]
-	if err != nil {
-		c.App.Error("Error during write:", err)
-	}
-	return err
+	return c.SetBody([]byte(content))
 }
 
 // Abort is a helper method that sends an HTTP header and an optional
@@ -523,8 +462,7 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 }
 
 func (c *Action) Flush() {
-	flusher, _ := c.ResponseWriter.(http.Flusher)
-	flusher.Flush()
+	c.ResponseWriter.Flush()
 }
 
 func (c *Action) BasePath() string {

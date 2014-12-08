@@ -61,7 +61,7 @@ func TestStatic(t *testing.T) {
 	}
 
 	var output string
-	if xweb.MainServer().Config.EnableGzip {
+	if resp.Header.Get("Content-Encoding") == "gzip" {
 		data, err := gzipDecode(bs)
 		if err != nil {
 			t.Error(err)
@@ -90,7 +90,7 @@ func TestStatic(t *testing.T) {
 		return
 	}
 
-	if xweb.MainServer().Config.EnableGzip {
+	if resp.Header.Get("Content-Encoding") == "gzip" {
 		data, err := gzipDecode(bs)
 		if err != nil {
 			t.Error(err)
@@ -130,7 +130,7 @@ func TestStatic(t *testing.T) {
 		return
 	}
 
-	if xweb.MainServer().Config.EnableGzip {
+	if resp.Header.Get("Content-Encoding") == "gzip" {
 		data, err := gzipDecode(bs)
 		if err != nil {
 			t.Error(err)
