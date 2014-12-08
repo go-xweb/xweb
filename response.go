@@ -80,11 +80,6 @@ func (r *ResponseWriter) ServeJson(obj interface{}) error {
 }
 
 func (r *ResponseWriter) Flush() error {
-	_, err := r.resp.Write(r.buffer)
-	if err != nil {
-		return err
-	}
-
 	if r.StatusCode == 0 {
 		r.StatusCode = http.StatusOK
 	}
@@ -93,6 +88,11 @@ func (r *ResponseWriter) Flush() error {
 		for _, v := range value {
 			r.resp.Header().Add(key, v)
 		}
+	}
+
+	_, err := r.resp.Write(r.buffer)
+	if err != nil {
+		return err
 	}
 
 	if flusher, ok := r.resp.(http.Flusher); ok {

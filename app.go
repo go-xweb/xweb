@@ -128,6 +128,8 @@ func (a *App) initApp() {
 		a.Use(&BindInterceptor{})
 	}
 
+	a.Use(&InjectInterceptor{})
+
 	if a.AppConfig.StaticFileVersion {
 		a.StaticVerMgr.Init(a, a.AppConfig.StaticDir)
 		a.FuncMaps["StaticUrl"] = a.StaticUrl
@@ -298,6 +300,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	var ac = ActionContext{}
 	ia := NewInvocation(a.interceptors, req, NewResponseWriter(w), &ac)
+	ia.SessionManager = a.SessionManager
 	ac.newAction = func() {
 		requestPath = req.URL.Path //[SWH|+]support filter change req.URL.Path
 		reqPath := removeStick(requestPath)
@@ -318,28 +321,24 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		route, args, isFind := a.findRoute(reqPath, allowMethod)
 
 		if isFind {
-			var isBreak bool = false
-			isBreak, statusCode = a.run(ia, route, args)
-			if isBreak {
-				return nil
-			}
-			ia.resp.StatusCode = statusCode
+			a.run(ia, route, args)
 		}
-		return nil
+		return ia.Result
 	}
 
 	ia.Invoke()
 
 	// if no any return status code
 	if !ia.Resp().Written() {
-		a.error(w, http.StatusNotFound, "Page not found")
-		statusCode = http.StatusNotFound
-	} else if ia.Result != nil {
+		if ia.Result == nil {
+			ia.Result = NotFound()
+		}
 		ia.HandleResult(ia.Result)
 	}
 
 	// flush the buffer
 	ia.Resp().Flush()
+	statusCode = ia.Resp().StatusCode
 }
 
 func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
@@ -372,7 +371,7 @@ func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 	return vc
 }
 
-func (a *App) run(ia *Invocation, route Route, args []reflect.Value) (isBreak bool, statusCode int) {
+func (a *App) run(ia *Invocation, route Route, args []reflect.Value) {
 	var vc reflect.Value
 	if ia.action.action == nil {
 		vc = a.newAction(ia, route)
@@ -384,59 +383,55 @@ func (a *App) run(ia *Invocation, route Route, args []reflect.Value) (isBreak bo
 	ret, err := a.SafelyCall(vc, route.HandlerMethod, args)
 	if err != nil {
 		//there was an error or panic while calling the handler
-		if a.AppConfig.Mode == Debug {
+		/*if a.AppConfig.Mode == Debug {
 			a.error(ia.resp, 500, fmt.Sprintf("<pre>handler error: %v</pre>", err))
 		} else if a.AppConfig.Mode == Product {
 			a.error(ia.resp, 500, "Server Error")
-		}
-		statusCode = 500
-		isBreak = true
+		}*/
+		//ia.resp.StatusCode = http.StatusInternalServerError
+		ia.Result = err
 		return
 	}
 
 	//statusCode = fieldA.Interface().(*Action).StatusCode
 
 	if len(ret) == 0 {
-		isBreak = true
 		return
 	}
 
-	sval := ret[0]
+	ia.Result = ret[0].Interface()
 
-	var content []byte
-	if sval.Interface() == nil || sval.Kind() == reflect.Bool {
-		isBreak = true
-		return
-	} else if sval.Kind() == reflect.String {
-		content = []byte(sval.String())
-		statusCode = 200
-	} else if sval.Kind() == reflect.Slice && sval.Type().Elem().Kind() == reflect.Uint8 {
-		content = sval.Interface().([]byte)
-		statusCode = 200
-	} else if err, ok := sval.Interface().(error); ok {
-		if err != nil {
-			a.Error("Error:", err)
-			a.error(ia.resp, 500, "Server Error")
-			statusCode = 500
+	/*
+		sval := ret[0]
+
+		var content []byte
+		if sval.Interface() == nil || sval.Kind() == reflect.Bool {
+			return
+		} else if sval.Kind() == reflect.String {
+			content = []byte(sval.String())
+			statusCode = 200
+		} else if sval.Kind() == reflect.Slice && sval.Type().Elem().Kind() == reflect.Uint8 {
+			content = sval.Interface().([]byte)
+			statusCode = 200
+		} else if err, ok := sval.Interface().(error); ok {
+			if err != nil {
+				a.Error("Error:", err)
+				a.error(ia.resp, 500, "Server Error")
+				statusCode = 500
+			}
+			return
+		} else {
+			a.Warn("unkonw returned result type %v, ignored %v", sval,
+				sval.Interface().(error))
+			return
 		}
-		isBreak = true
-		return
-	} else {
-		a.Warn("unkonw returned result type %v, ignored %v", sval,
-			sval.Interface().(error))
 
-		isBreak = true
-		return
-	}
-
-	ia.resp.Header().Set("Content-Length", strconv.Itoa(len(content)))
-	_, err = ia.resp.Write(content)
-	if err != nil {
-		a.Error("Error during write: %v", err)
-		statusCode = 500
-		isBreak = true
-		return
-	}
+		ia.resp.Header().Set("Content-Length", strconv.Itoa(len(content)))
+		_, err = ia.resp.Write(content)
+		if err != nil {
+			a.Error("Error during write: %v", err)
+			statusCode = 500
+		}*/
 	return
 }
 

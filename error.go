@@ -5,20 +5,29 @@ import (
 	"net/http"
 )
 
-type AbortError struct {
-	Code    int
-	Content string
+type AbortError interface {
+	error
+	Code() int
 }
 
-func (a *AbortError) Error() string {
-	return fmt.Sprintf("%v %v", a.Code, a.Content)
+type abortError struct {
+	code    int
+	content string
+}
+
+func (a *abortError) Code() int {
+	return a.code
+}
+
+func (a *abortError) Error() string {
+	return fmt.Sprintf("%v %v", a.code, a.content)
 }
 
 func Abort(code int, content ...string) error {
 	if len(content) >= 1 {
-		return &AbortError{code, content[0]}
+		return &abortError{code, content[0]}
 	}
-	return &AbortError{code, statusText[code]}
+	return &abortError{code, statusText[code]}
 }
 
 func NotFound(content ...string) error {

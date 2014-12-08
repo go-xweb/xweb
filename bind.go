@@ -16,9 +16,10 @@ type BindInterceptor struct {
 
 func (inter *BindInterceptor) Intercept(ai *Invocation) {
 	action := ai.ActionContext().Action()
-	vc := reflect.ValueOf(action)
-	namedStructMap(log.Std, vc.Elem(), ai.req, "")
-
+	if action != nil {
+		vc := reflect.ValueOf(action)
+		namedStructMap(log.Std, vc.Elem(), ai.req, "")
+	}
 	ai.Invoke()
 }
 

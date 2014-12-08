@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/go-xweb/httpsession"
 )
 
 type Interceptor interface {
@@ -13,11 +15,12 @@ type Interceptor interface {
 }
 
 type Invocation struct {
-	interceptors []Interceptor
-	idx          int
-	action       *ActionContext
-	req          *http.Request
-	resp         *ResponseWriter
+	interceptors   []Interceptor
+	idx            int
+	action         *ActionContext
+	req            *http.Request
+	resp           *ResponseWriter
+	SessionManager *httpsession.Manager
 
 	Result interface{}
 }
@@ -70,14 +73,24 @@ func (invocation *Invocation) HandleResult(result interface{}) bool {
 		return false
 	}
 
-	if err, ok := result.(error); ok {
-		invocation.resp.WriteHeader(http.StatusInternalServerError)
-		invocation.resp.Write([]byte(err.Error()))
+	if err, ok := result.(AbortError); ok {
+		if !invocation.resp.Written() {
+			invocation.resp.WriteHeader(err.Code())
+			invocation.resp.Write([]byte(err.Error()))
+		}
+	} else if err, ok := result.(error); ok {
+		if !invocation.resp.Written() {
+			invocation.resp.WriteHeader(http.StatusInternalServerError)
+			invocation.resp.Write([]byte(err.Error()))
+		} else {
+			// TODO: log the error
+		}
 		return true
-	}
-
-	if bs, ok := result.([]byte); ok {
+	} else if bs, ok := result.([]byte); ok {
 		invocation.resp.Write(bs)
+		return true
+	} else if s, ok := result.(string); ok {
+		invocation.resp.Write([]byte(s))
 		return true
 	}
 	return false
@@ -146,6 +159,10 @@ type BeforeInterceptor struct {
 
 func (itor *BeforeInterceptor) Intercept(ai *Invocation) {
 	action := ai.ActionContext().Action()
+	if action == nil {
+		return
+	}
+
 	if before, ok := action.(BeforeInterface); ok {
 		route := ai.ActionContext().getRoute()
 		if !before.Before(route.HandlerElement.Name(),
@@ -167,6 +184,9 @@ func (itor *AfterInterceptor) Intercept(ai *Invocation) {
 	ai.Invoke()
 
 	action := ai.ActionContext().Action()
+	if action == nil {
+		return
+	}
 
 	if after, ok := action.(AfterInterface); ok {
 		route := ai.ActionContext().getRoute()
