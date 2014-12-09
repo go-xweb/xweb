@@ -1,35 +1,35 @@
 package xweb
 
-import "net/http"
+import (
+	"reflect"
+	"strings"
+)
 
-type AppInterface interface {
-	SetApp(*App)
+type Injector struct {
+	objs map[reflect.Type]interface{}
 }
 
-type RequestInterface interface {
-	SetRequest(*http.Request)
-}
-
-type ResponseInterface interface {
-	SetResponse(*ResponseWriter)
-}
-
-type InjectInterceptor struct {
-}
-
-func (ii *InjectInterceptor) Intercept(ia *Invocation) {
-	action := ia.ActionContext().Action()
-	if s, ok := action.(RequestInterface); ok {
-		s.SetRequest(ia.Req())
+func NewInjector() *Injector {
+	return &Injector{
+		objs: make(map[reflect.Type]interface{}),
 	}
+}
 
-	if s, ok := action.(ResponseInterface); ok {
-		s.SetResponse(ia.Resp())
+func (c *Injector) Map(obj interface{}) {
+	c.objs[reflect.TypeOf(obj)] = obj
+}
+
+func (c *Injector) Inject(obj interface{}) {
+	vv := reflect.ValueOf(obj)
+	t := vv.Type()
+	for k, v := range c.objs {
+		for i := 0; i < t.NumMethod(); i++ {
+			m := t.Method(i)
+			if m.Type.NumIn() == 2 &&
+				strings.HasPrefix(m.Name, "Set") &&
+				m.Type.In(1) == k {
+				m.Func.Call([]reflect.Value{vv, reflect.ValueOf(v)})
+			}
+		}
 	}
-
-	if s, ok := action.(AppInterface); ok {
-		s.SetApp(ia.app)
-	}
-
-	ia.Invoke()
 }

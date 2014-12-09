@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/go-xweb/log"
 	"github.com/howeyc/fsnotify"
 )
 
@@ -17,7 +18,7 @@ type StaticVerMgr struct {
 	mutex   *sync.Mutex
 	Path    string
 	Ignores map[string]bool
-	app     *App
+	logger  *log.Logger
 }
 
 func (self *StaticVerMgr) Moniter(staticPath string) error {
@@ -71,7 +72,7 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 					}
 				}
 			case err := <-watcher.Error:
-				self.app.Logger.Errorf("error: %v", err)
+				self.logger.Errorf("error: %v", err)
 			}
 		}
 	}()
@@ -94,12 +95,11 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 	return nil
 }
 
-func (self *StaticVerMgr) Init(app *App, staticPath string) error {
+func (self *StaticVerMgr) Init(staticPath string) error {
 	self.Path = staticPath
 	self.Caches = make(map[string]string)
 	self.mutex = &sync.Mutex{}
 	self.Ignores = map[string]bool{".DS_Store": true}
-	self.app = app
 
 	if dirExists(staticPath) {
 		self.CacheAll(staticPath)
@@ -111,9 +111,8 @@ func (self *StaticVerMgr) Init(app *App, staticPath string) error {
 }
 
 func (self *StaticVerMgr) getFileVer(url string) string {
-	//content, err := ioutil.ReadFile(path.Join(self.Path, url))
 	fPath := filepath.Join(self.Path, url)
-	self.app.Logger.Debug("loaded static ", fPath)
+	self.logger.Debug("loaded static ", fPath)
 	f, err := os.Open(fPath)
 	if err != nil {
 		return ""
@@ -125,11 +124,17 @@ func (self *StaticVerMgr) getFileVer(url string) string {
 		return ""
 	}
 
-	content := make([]byte, int(fInfo.Size()))
+	var maxRead = fInfo.Size()
+	if maxRead > 1024*1024*20 {
+		maxRead = 1024 * 1024 * 20
+	}
+
+	content := make([]byte, int(maxRead))
 	_, err = f.Read(content)
 	if err == nil {
 		h := md5.New()
 		io.WriteString(h, string(content))
+		io.WriteString(h, fmt.Sprintf("%d", fInfo.Size()))
 		return fmt.Sprintf("%x", h.Sum(nil))[0:4]
 	}
 	return ""
@@ -171,17 +176,16 @@ func (self *StaticVerMgr) CacheDelete(url string) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 	delete(self.Caches, url)
-	self.app.Logger.Infof("static file %s is deleted.\n", url)
+	self.logger.Infof("static file %s is deleted.\n", url)
 }
 
 func (self *StaticVerMgr) CacheItem(url string) {
-	fmt.Println(url)
 	ver := self.getFileVer(url)
 	if ver != "" {
 		self.mutex.Lock()
 		defer self.mutex.Unlock()
 		self.Caches[url] = ver
-		self.app.Logger.Infof("static file %s is created.", url)
+		self.logger.Infof("static file %s is created.", url)
 	}
 }
 
@@ -215,13 +219,17 @@ type StaticVerInterceptor struct {
 	staticMgr *StaticVerMgr
 }
 
-func NewStaticVerInterceptor(app *App, staticDir string) *StaticVerInterceptor {
-	staticMgr := new(StaticVerMgr)
-	staticMgr.Init(app, staticDir)
+func NewStaticVerInterceptor(logger *log.Logger, staticDir string, app *App) *StaticVerInterceptor {
+	staticMgr := &StaticVerMgr{
+		logger: logger,
+	}
+	staticMgr.Init(staticDir)
 
+	// TODO: refactoring this
 	app.FuncMaps["StaticUrl"] = func(url string) string {
 		return app.StaticUrl(url, staticMgr.GetVersion)
 	}
+
 	return &StaticVerInterceptor{
 		staticMgr: staticMgr,
 	}
@@ -229,4 +237,48 @@ func NewStaticVerInterceptor(app *App, staticDir string) *StaticVerInterceptor {
 
 func (itor *StaticVerInterceptor) Intercept(ia *Invocation) {
 	ia.Invoke()
+}
+
+type StaticInterceptor struct {
+	RootPath   string
+	IndexFiles []string
+}
+
+func (itor *StaticInterceptor) serveFile(ai *Invocation, path string) bool {
+	fPath := filepath.Join(itor.RootPath, path)
+	finfo, err := os.Stat(fPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			ai.HandleResult(err)
+			return true
+		}
+	} else if !finfo.IsDir() {
+		err := ai.ServeFile(fPath)
+		if err != nil {
+			ai.HandleResult(err)
+		}
+		return true
+	}
+	return false
+}
+
+func (itor *StaticInterceptor) Intercept(ai *Invocation) {
+	if ai.Req().Method == "GET" || ai.Req().Method == "HEAD" {
+		if itor.serveFile(ai, ai.Req().URL.Path) {
+			return
+		}
+	}
+
+	ai.Invoke()
+
+	// try serving index.html or index.htm
+	if !ai.Resp().Written() && (ai.Req().Method == "GET" || ai.Req().Method == "HEAD") {
+		if len(itor.IndexFiles) > 0 {
+			for _, index := range itor.IndexFiles {
+				if itor.serveFile(ai, path.Join(ai.Req().URL.Path, index)) {
+					return
+				}
+			}
+		}
+	}
 }

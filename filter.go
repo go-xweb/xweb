@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+
+	"github.com/go-xweb/httpsession"
 )
 
 type Filter interface {
@@ -28,22 +30,27 @@ func (itor *FilterInterceptor) Intercept(ia *Invocation) {
 	ia.Invoke()
 }
 
+// for compitable
 func (app *App) AddFilter(filter Filter) {
 	app.interceptors = append(app.interceptors, NewFilterInterceptor(filter))
-	//app.filters = append(app.filters, filter)
 }
 
 type LoginFilter struct {
-	App           *App
 	SessionName   string
+	sessionMgr    *httpsession.Manager
 	AnonymousUrls []*regexp.Regexp
 	AskLoginUrls  []*regexp.Regexp
 	Redirect      string
 	OriUrlName    string
 }
 
+func (s *LoginFilter) SetSessionMgr(sessionMgr *httpsession.Manager) {
+	s.sessionMgr = sessionMgr
+}
+
 func NewLoginFilter(app *App, name string, redirect string) *LoginFilter {
-	filter := &LoginFilter{App: app, SessionName: name,
+	filter := &LoginFilter{
+		SessionName:   name,
 		AnonymousUrls: make([]*regexp.Regexp, 0),
 		AskLoginUrls:  make([]*regexp.Regexp, 0),
 		Redirect:      redirect,
@@ -73,13 +80,13 @@ func (s *LoginFilter) AddAskLoginUrls(urls ...string) {
 func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	requestPath := removeStick(req.URL.Path)
 
-	session := s.App.SessionManager.Session(req, w)
+	session := s.sessionMgr.Session(req, w)
 	id := session.Get(s.SessionName)
 	has := (id != nil && id != "")
 
-	var redirect = s.Redirect
+	var rd = s.Redirect
 	if s.OriUrlName != "" {
-		redirect = redirect + "?" + s.OriUrlName + "=" + url.QueryEscape(req.URL.String())
+		rd = rd + "?" + s.OriUrlName + "=" + url.QueryEscape(req.URL.String())
 	}
 
 	for _, cr := range s.AskLoginUrls {
@@ -91,7 +98,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 			continue
 		}
 		if !has {
-			s.App.Redirect(w, requestPath, redirect)
+			redirect(w, rd)
 		}
 		return has
 	}
@@ -112,7 +119,7 @@ func (s *LoginFilter) Do(w http.ResponseWriter, req *http.Request) bool {
 	}
 
 	if !has {
-		s.App.Redirect(w, requestPath, redirect)
+		redirect(w, rd)
 	}
 	return has
 }

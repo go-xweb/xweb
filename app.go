@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/go-xweb/httpsession"
-	"github.com/go-xweb/log"
 )
 
 type App struct {
+	*Injector
+
 	BasePath        string
 	Name            string //[SWH|+]
 	Routes          []Route
@@ -26,9 +27,9 @@ type App struct {
 	ActionsPath     map[reflect.Type]string
 	ActionsNamePath map[string]string
 	FuncMaps        template.FuncMap
-	Logger          *log.Logger
-	VarMaps         T
-	SessionManager  *httpsession.Manager //Session manager
+	//Logger          *log.Logger
+	VarMaps        T
+	SessionManager *httpsession.Manager //Session manager
 
 	//StaticVerMgr *StaticVerMgr
 	interceptors []Interceptor
@@ -64,6 +65,7 @@ func NewApp(args ...string) *App {
 		name = args[1]
 	}
 	return &App{
+		Injector: NewInjector(),
 		BasePath: path,
 		Name:     name, //[SWH|+]
 		RoutesEq: make(map[string]map[string]Route),
@@ -86,8 +88,7 @@ func NewApp(args ...string) *App {
 		ActionsNamePath: map[string]string{},
 		FuncMaps:        defaultFuncs,
 		VarMaps:         T{},
-		//StaticVerMgr:    new(StaticVerMgr),
-		interceptors: make([]Interceptor, 0),
+		interceptors:    make([]Interceptor, 0),
 	}
 }
 
@@ -95,18 +96,27 @@ func (a *App) Use(interceptors ...Interceptor) {
 	a.interceptors = append(a.interceptors, interceptors...)
 }
 
-func (a *App) initApp() {
-	if a.Logger == nil {
-		a.Logger = a.Server.Logger
+func (a *App) InjectAll() {
+	for _, inter := range a.interceptors {
+		a.Inject(inter)
 	}
+}
+
+func (a *App) initApp() {
+	// TODO: should test if logger has been mapped
+	logger := a.Server.Logger
+	a.Map(logger)
 
 	a.Use(
-		&LogInterceptor{},
-		NewPanicInterceptor(a.AppConfig.Mode == Debug),
+		NewLogInterceptor(logger),
+		NewPanicInterceptor(
+			a.Server.Config.RecoverPanic,
+			a.AppConfig.Mode == Debug,
+		),
 	)
 
 	if a.Server.Config.EnableGzip {
-		a.Use(&GZipInterceptor{})
+		a.Use(NewCompressInterceptor(a.Server.Config.StaticExtensionsToGzip))
 	}
 
 	a.Use(
@@ -121,7 +131,8 @@ func (a *App) initApp() {
 		&InitInterceptor{},
 		&BeforeInterceptor{},
 		&AfterInterceptor{},
-		&InjectInterceptor{},
+		&RequestInterceptor{},
+		&ResponseInterceptor{},
 	)
 
 	if a.AppConfig.FormMapToStruct {
@@ -129,7 +140,7 @@ func (a *App) initApp() {
 	}
 
 	if a.AppConfig.StaticFileVersion {
-		a.Use(NewStaticVerInterceptor(a, a.AppConfig.StaticDir))
+		a.Use(NewStaticVerInterceptor(logger, a.AppConfig.StaticDir, a))
 	} else {
 		// even if don't use static file version, is still
 		a.FuncMaps["StaticUrl"] = a.StaticUrlNoVer
@@ -148,7 +159,10 @@ func (a *App) initApp() {
 
 	if a.AppConfig.SessionOn {
 		a.Use(NewSessionInterceptor(a))
+		a.Map(a.SessionManager)
 	}
+
+	a.InjectAll()
 }
 
 func (a *App) SetStaticDir(dir string) {
@@ -199,7 +213,13 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	var ac = ActionContext{}
-	ia := NewInvocation(a, a.interceptors, req, NewResponseWriter(w), &ac)
+	ia := NewInvocation(
+		a.Injector,
+		a.interceptors,
+		req,
+		NewResponseWriter(w),
+		&ac,
+	)
 
 	ac.newAction = func() {
 		reqPath := removeStick(req.URL.Path)
@@ -284,21 +304,6 @@ func (a *App) error(w http.ResponseWriter, status int, content string) error {
 var (
 	sc *Action = &Action{}
 )
-
-func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status ...int) error {
-	s := 302
-	if len(status) > 0 {
-		s = status[0]
-	}
-	w.Header().Set("Location", url)
-	w.WriteHeader(s)
-	_, err := w.Write([]byte("Redirecting to: " + url))
-	if err != nil {
-		app.Logger.Errorf("redirect error: %s", err)
-		return err
-	}
-	return nil
-}
 
 func (app *App) Action(name string) interface{} {
 	if v, ok := app.Actions[name]; ok {

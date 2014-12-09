@@ -190,6 +190,12 @@ type RenderInterceptor struct {
 	templateMgr *TemplateMgr
 	FuncMaps    template.FuncMap
 	VarMaps     T
+	logger      *log.Logger
+}
+
+func (itor *RenderInterceptor) SetLogger(logger *log.Logger) {
+	itor.logger = logger
+	itor.templateMgr.logger = logger
 }
 
 func NewRenderInterceptor(templateDir string,
@@ -220,7 +226,7 @@ func (itor *RenderInterceptor) Intercept(ia *Invocation) {
 		if rd, ok := action.(RenderInterface); ok {
 			renderer := NewRenderer(
 				ia.Resp(),
-				ia.app.Logger,
+				itor.logger,
 				itor.templateMgr,
 				itor.FuncMaps,
 				action,

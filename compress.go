@@ -8,6 +8,13 @@ import (
 )
 
 type GZipInterceptor struct {
+	staticExts []string
+}
+
+func NewCompressInterceptor(staticExts []string) *GZipInterceptor {
+	return &GZipInterceptor{
+		staticExts: staticExts,
+	}
 }
 
 func (inter *GZipInterceptor) Intercept(ia *Invocation) {
@@ -17,9 +24,9 @@ func (inter *GZipInterceptor) Intercept(ia *Invocation) {
 	ia.Resp().Header().Add("Vary", "Accept-Encoding")
 
 	isStaticFileToCompress := false
-	if ia.app.Server.Config.StaticExtensionsToGzip != nil && len(ia.app.Server.Config.StaticExtensionsToGzip) > 0 {
-		for _, statExtension := range ia.app.Server.Config.StaticExtensionsToGzip {
-			if strings.HasSuffix(strings.ToLower(ia.Req().URL.Path), strings.ToLower(statExtension)) {
+	if inter.staticExts != nil && len(inter.staticExts) > 0 {
+		for _, ext := range inter.staticExts {
+			if strings.HasSuffix(strings.ToLower(ia.Req().URL.Path), strings.ToLower(ext)) {
 				isStaticFileToCompress = true
 				break
 			}

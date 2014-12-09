@@ -4,20 +4,28 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+
+	"github.com/go-xweb/log"
 )
 
 type PanicInterceptor struct {
-	debug bool
+	recoverPanic bool
+	debug        bool
+	logger       *log.Logger
 }
 
-func NewPanicInterceptor(isDebug bool) *PanicInterceptor {
+func (inter *PanicInterceptor) SetLogger(logger *log.Logger) {
+	inter.logger = logger
+}
+
+func NewPanicInterceptor(recoverPanic, isDebug bool) *PanicInterceptor {
 	return &PanicInterceptor{debug: isDebug}
 }
 
 func (itor *PanicInterceptor) Intercept(ia *Invocation) {
 	defer func() {
 		if e := recover(); e != nil {
-			if !ia.app.Server.Config.RecoverPanic {
+			if !itor.recoverPanic {
 				// go back to panic
 				panic(e)
 			} else {
@@ -33,7 +41,7 @@ func (itor *PanicInterceptor) Intercept(ia *Invocation) {
 					content += fmt.Sprintf("%v %v", file, line)
 				}
 
-				ia.app.Logger.Error(content)
+				itor.logger.Error(content)
 
 				ia.Resp().WriteHeader(http.StatusInternalServerError)
 				if !itor.debug {

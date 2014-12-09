@@ -26,20 +26,18 @@ func (app *App) AutoAction(cs ...interface{}) {
 		t := reflect.Indirect(reflect.ValueOf(c)).Type()
 		name := t.Name()
 		if strings.HasSuffix(name, "Action") {
-			path := strings.ToLower(name[:len(name)-6])
-			app.AddRouter(JoinPath(app.BasePath, path), c)
-		} else {
-			app.Logger.Warn("AutoAction needs a named ends with Action")
+			name = strings.ToLower(name[:len(name)-6])
 		}
+		app.AddRouter(JoinPath(app.BasePath, name), c)
 	}
 }
 
 func (a *App) addRoute(r string, methods map[string]bool,
-	t reflect.Type, handler string, hasAction bool) {
+	t reflect.Type, handler string, hasAction bool) error {
 	cr, err := regexp.Compile(r)
 	if err != nil {
-		a.Logger.Errorf("Error in route regex %q: %s", r, err)
-		return
+		//a.Logger.Errorf("Error in route regex %q: %s", r, err)
+		return err
 	}
 	a.Routes = append(a.Routes, Route{
 		Path:           r,
@@ -49,6 +47,7 @@ func (a *App) addRoute(r string, methods map[string]bool,
 		HandlerElement: t,
 		hasAction:      hasAction,
 	})
+	return nil
 }
 
 func (a *App) addEqRoute(r string, methods map[string]bool,

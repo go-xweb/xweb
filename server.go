@@ -80,7 +80,7 @@ func (s *Server) AddApp(a *App) {
 	}
 
 	a.Server = s
-	a.Logger = s.Logger
+	//a.Logger = s.Logger
 	if a.BasePath == "/" {
 		s.RootApp = a
 	}
@@ -266,9 +266,9 @@ func (s *Server) Close() {
 func (s *Server) SetLogger(logger *log.Logger) {
 	s.Logger = logger
 	s.Logger.SetPrefix("[" + s.Name + "] ")
-	if s.RootApp != nil {
+	/*if s.RootApp != nil {
 		s.RootApp.Logger = s.Logger
-	}
+	}*/
 }
 
 func (s *Server) InitSession() {

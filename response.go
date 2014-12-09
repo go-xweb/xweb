@@ -98,6 +98,26 @@ func (r *ResponseWriter) Download(fpath string) error {
 	return err
 }
 
+func redirect(w http.ResponseWriter, url string, status ...int) error {
+	s := 302
+	if len(status) > 0 {
+		s = status[0]
+	}
+	w.Header().Set("Location", url)
+	w.WriteHeader(s)
+	_, err := w.Write([]byte("Redirecting to: " + url))
+	return err
+}
+
+func (w *ResponseWriter) Redirect(url string, status ...int) error {
+	return redirect(w, url, status...)
+}
+
+// Notmodified writes a 304 HTTP response
+func (w *ResponseWriter) NotModified() {
+	w.WriteHeader(304)
+}
+
 func (r *ResponseWriter) Flush() error {
 	//fmt.Println("responsewriter:", r)
 
@@ -126,4 +146,20 @@ func (r *ResponseWriter) Flush() error {
 		flusher.Flush()
 	}
 	return nil
+}
+
+type ResponseInterface interface {
+	SetResponse(*ResponseWriter)
+}
+
+type ResponseInterceptor struct {
+}
+
+func (ii *ResponseInterceptor) Intercept(ia *Invocation) {
+	action := ia.ActionContext().Action()
+	if s, ok := action.(ResponseInterface); ok {
+		s.SetResponse(ia.Resp())
+	}
+
+	ia.Invoke()
 }

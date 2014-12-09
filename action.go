@@ -275,16 +275,6 @@ func (c *Action) Abort(status int, body string) error {
 	return c.App.error(c.ResponseWriter, status, body)
 }
 
-// Redirect is a helper method for 3xx redirects.
-func (c *Action) Redirect(url string, status ...int) error {
-	return c.App.Redirect(c.ResponseWriter, c.Request.URL.Path, url, status...)
-}
-
-// Notmodified writes a 304 HTTP response
-func (c *Action) NotModified() {
-	c.ResponseWriter.WriteHeader(304)
-}
-
 // NotFound writes a 404 HTTP response
 func (c *Action) NotFound(message string) error {
 	return c.Abort(404, message)

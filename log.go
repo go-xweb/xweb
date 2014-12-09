@@ -7,13 +7,20 @@ type LogInterface interface {
 }
 
 type LogInterceptor struct {
+	logger *log.Logger
+}
+
+func NewLogInterceptor(logger *log.Logger) *LogInterceptor {
+	return &LogInterceptor{
+		logger: logger,
+	}
 }
 
 func (itor *LogInterceptor) Intercept(ai *Invocation) {
 	action := ai.ActionContext().Action()
 	if action != nil {
 		if l, ok := action.(LogInterface); ok {
-			l.SetLogger(ai.app.Logger)
+			l.SetLogger(itor.logger)
 		}
 	}
 
@@ -24,9 +31,9 @@ func (itor *LogInterceptor) Intercept(ai *Invocation) {
 		requestPath := ai.Req().URL.Path
 
 		if statusCode >= 200 && statusCode < 400 {
-			ai.app.Logger.Info(ai.Req().Method, statusCode, requestPath)
+			itor.logger.Info(ai.Req().Method, statusCode, requestPath)
 		} else {
-			ai.app.Logger.Error(ai.Req().Method, statusCode, requestPath)
+			itor.logger.Error(ai.Req().Method, statusCode, requestPath)
 		}
 	}
 }
