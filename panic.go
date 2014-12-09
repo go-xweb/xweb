@@ -33,7 +33,7 @@ func (itor *PanicInterceptor) Intercept(ia *Invocation) {
 					content += fmt.Sprintf("%v %v", file, line)
 				}
 
-				ia.app.Error(content)
+				ia.app.Logger.Error(content)
 
 				ia.Resp().WriteHeader(http.StatusInternalServerError)
 				if !itor.debug {

@@ -71,7 +71,7 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 					}
 				}
 			case err := <-watcher.Error:
-				self.app.Errorf("error: %v", err)
+				self.app.Logger.Errorf("error: %v", err)
 			}
 		}
 	}()
@@ -113,7 +113,7 @@ func (self *StaticVerMgr) Init(app *App, staticPath string) error {
 func (self *StaticVerMgr) getFileVer(url string) string {
 	//content, err := ioutil.ReadFile(path.Join(self.Path, url))
 	fPath := filepath.Join(self.Path, url)
-	self.app.Debug("loaded static ", fPath)
+	self.app.Logger.Debug("loaded static ", fPath)
 	f, err := os.Open(fPath)
 	if err != nil {
 		return ""
@@ -171,7 +171,7 @@ func (self *StaticVerMgr) CacheDelete(url string) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 	delete(self.Caches, url)
-	self.app.Infof("static file %s is deleted.\n", url)
+	self.app.Logger.Infof("static file %s is deleted.\n", url)
 }
 
 func (self *StaticVerMgr) CacheItem(url string) {
@@ -181,7 +181,7 @@ func (self *StaticVerMgr) CacheItem(url string) {
 		self.mutex.Lock()
 		defer self.mutex.Unlock()
 		self.Caches[url] = ver
-		self.app.Infof("static file %s is created.", url)
+		self.app.Logger.Infof("static file %s is created.", url)
 	}
 }
 

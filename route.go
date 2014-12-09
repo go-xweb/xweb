@@ -29,7 +29,7 @@ func (app *App) AutoAction(cs ...interface{}) {
 			path := strings.ToLower(name[:len(name)-6])
 			app.AddRouter(JoinPath(app.BasePath, path), c)
 		} else {
-			app.Warn("AutoAction needs a named ends with Action")
+			app.Logger.Warn("AutoAction needs a named ends with Action")
 		}
 	}
 }
@@ -38,7 +38,7 @@ func (a *App) addRoute(r string, methods map[string]bool,
 	t reflect.Type, handler string, hasAction bool) {
 	cr, err := regexp.Compile(r)
 	if err != nil {
-		a.Errorf("Error in route regex %q: %s", r, err)
+		a.Logger.Errorf("Error in route regex %q: %s", r, err)
 		return
 	}
 	a.Routes = append(a.Routes, Route{

@@ -391,7 +391,7 @@ func getCookieSig(key string, val []byte, timestamp string) string {
 func (c *Action) SetSecureCookie(name string, val string, age int64) {
 	//base64 encode the val
 	if len(c.App.AppConfig.CookieSecret) == 0 {
-		c.App.Error("Secret Key for secure cookies has not been set. Please assign a cookie secret to web.Config.CookieSecret.")
+		c.logger.Error("Secret Key for secure cookies has not been set. Please assign a cookie secret to web.Config.CookieSecret.")
 		return
 	}
 	var buf bytes.Buffer
@@ -486,51 +486,51 @@ func (c *Action) Namespace() string {
 }
 
 func (c *Action) Debug(params ...interface{}) {
-	c.App.Debug(params...)
+	c.logger.Debug(params...)
 }
 
 func (c *Action) Info(params ...interface{}) {
-	c.App.Info(params...)
+	c.logger.Info(params...)
 }
 
 func (c *Action) Warn(params ...interface{}) {
-	c.App.Warn(params...)
+	c.logger.Warn(params...)
 }
 
 func (c *Action) Error(params ...interface{}) {
-	c.App.Error(params...)
+	c.logger.Error(params...)
 }
 
 func (c *Action) Fatal(params ...interface{}) {
-	c.App.Fatal(params...)
+	c.logger.Fatal(params...)
 }
 
 func (c *Action) Panic(params ...interface{}) {
-	c.App.Panic(params...)
+	c.logger.Panic(params...)
 }
 
 func (c *Action) Debugf(format string, params ...interface{}) {
-	c.App.Debugf(format, params...)
+	c.logger.Debugf(format, params...)
 }
 
 func (c *Action) Infof(format string, params ...interface{}) {
-	c.App.Infof(format, params...)
+	c.logger.Infof(format, params...)
 }
 
 func (c *Action) Warnf(format string, params ...interface{}) {
-	c.App.Warnf(format, params...)
+	c.logger.Warnf(format, params...)
 }
 
 func (c *Action) Errorf(format string, params ...interface{}) {
-	c.App.Errorf(format, params...)
+	c.logger.Errorf(format, params...)
 }
 
 func (c *Action) Fatalf(format string, params ...interface{}) {
-	c.App.Fatalf(format, params...)
+	c.logger.Fatalf(format, params...)
 }
 
 func (c *Action) Panicf(format string, params ...interface{}) {
-	c.App.Panicf(format, params...)
+	c.logger.Panicf(format, params...)
 }
 
 func (c *Action) SetConfig(name string, value interface{}) {

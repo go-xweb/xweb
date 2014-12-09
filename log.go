@@ -24,9 +24,9 @@ func (itor *LogInterceptor) Intercept(ai *Invocation) {
 		requestPath := ai.Req().URL.Path
 
 		if statusCode >= 200 && statusCode < 400 {
-			ai.app.Info(ai.Req().Method, statusCode, requestPath)
+			ai.app.Logger.Info(ai.Req().Method, statusCode, requestPath)
 		} else {
-			ai.app.Error(ai.Req().Method, statusCode, requestPath)
+			ai.app.Logger.Error(ai.Req().Method, statusCode, requestPath)
 		}
 	}
 }

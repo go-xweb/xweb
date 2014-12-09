@@ -181,60 +181,6 @@ func (app *App) AddTmplVars(t *T) {
 	}
 }
 
-func (app *App) Debug(params ...interface{}) {
-	args := append([]interface{}{"[" + app.Name + "]"}, params...)
-	app.Logger.Debug(args...)
-}
-
-func (app *App) Info(params ...interface{}) {
-	args := append([]interface{}{"[" + app.Name + "]"}, params...)
-	app.Logger.Info(args...)
-}
-
-func (app *App) Warn(params ...interface{}) {
-	args := append([]interface{}{"[" + app.Name + "]"}, params...)
-	app.Logger.Warn(args...)
-}
-
-func (app *App) Error(params ...interface{}) {
-	args := append([]interface{}{"[" + app.Name + "]"}, params...)
-	app.Logger.Error(args...)
-}
-
-func (app *App) Fatal(params ...interface{}) {
-	args := append([]interface{}{"[" + app.Name + "]"}, params...)
-	app.Logger.Fatal(args...)
-}
-
-func (app *App) Panic(params ...interface{}) {
-	args := append([]interface{}{"[" + app.Name + "]"}, params...)
-	app.Logger.Panic(args...)
-}
-
-func (app *App) Debugf(format string, params ...interface{}) {
-	app.Logger.Debugf("["+app.Name+"] "+format, params...)
-}
-
-func (app *App) Infof(format string, params ...interface{}) {
-	app.Logger.Infof("["+app.Name+"] "+format, params...)
-}
-
-func (app *App) Warnf(format string, params ...interface{}) {
-	app.Logger.Warnf("["+app.Name+"] "+format, params...)
-}
-
-func (app *App) Errorf(format string, params ...interface{}) {
-	app.Logger.Errorf("["+app.Name+"] "+format, params...)
-}
-
-func (app *App) Fatalf(format string, params ...interface{}) {
-	app.Logger.Fatalf("["+app.Name+"] "+format, params...)
-}
-
-func (app *App) Panicf(format string, params ...interface{}) {
-	app.Logger.Panicf("["+app.Name+"] "+format, params...)
-}
-
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	//ignore errors from ParseForm because it's usually harmless.
 	ct := req.Header.Get("Content-Type")
@@ -348,7 +294,7 @@ func (app *App) Redirect(w http.ResponseWriter, requestPath, url string, status 
 	w.WriteHeader(s)
 	_, err := w.Write([]byte("Redirecting to: " + url))
 	if err != nil {
-		app.Errorf("redirect error: %s", err)
+		app.Logger.Errorf("redirect error: %s", err)
 		return err
 	}
 	return nil
