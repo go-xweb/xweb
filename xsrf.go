@@ -19,6 +19,11 @@ func XsrfName() string {
 type XsrfInterceptor struct {
 }
 
+func NewXsrfInterceptor(app *App) *XsrfInterceptor {
+	app.FuncMaps["XsrfName"] = XsrfName
+	return &XsrfInterceptor{}
+}
+
 func (inter *XsrfInterceptor) Intercept(ia *Invocation) {
 	if ia.Req().Method == "POST" {
 		res, err := ia.Req().Cookie(XSRF_TAG)

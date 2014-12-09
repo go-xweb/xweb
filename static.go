@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 
@@ -182,4 +183,33 @@ func (self *StaticVerMgr) CacheItem(url string) {
 		self.Caches[url] = ver
 		self.app.Infof("static file %s is created.", url)
 	}
+}
+
+func (a *App) StaticUrl(url string) string {
+	var basePath string
+	if a.AppConfig.StaticDir == RootApp().AppConfig.StaticDir {
+		basePath = RootApp().BasePath
+	} else {
+		basePath = a.BasePath
+	}
+	if !a.AppConfig.StaticFileVersion {
+		return path.Join(basePath, url)
+	}
+	ver := a.StaticVerMgr.GetVersion(url)
+	if ver == "" {
+		return path.Join(basePath, url)
+	}
+	return path.Join(basePath, url+"?v="+ver)
+}
+
+type StaticVerInterceptor struct {
+}
+
+func NewStaticVerInterceptor(app *App) *StaticVerInterceptor {
+	app.StaticVerMgr.Init(app, app.AppConfig.StaticDir)
+	return &StaticVerInterceptor{}
+}
+
+func (itor *StaticVerInterceptor) Intercept(ia *Invocation) {
+	ia.Invoke()
 }

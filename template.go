@@ -395,3 +395,23 @@ func (self *TemplateMgr) CacheDelete(tmpl string) {
 	delete(self.Caches, tmpl)
 	return
 }
+
+type TemplateInterceptor struct {
+}
+
+func NewTemplateInterceptor(app *App) *TemplateInterceptor {
+	app.TemplateMgr.Init(app,
+		app.AppConfig.TemplateDir,
+		app.AppConfig.ReloadTemplates,
+	)
+
+	app.VarMaps["XwebVer"] = Version
+	// even if don't use static file version, is still
+	app.FuncMaps["StaticUrl"] = app.StaticUrl
+
+	return &TemplateInterceptor{}
+}
+
+func (inter *TemplateInterceptor) Intercept(ia *Invocation) {
+	ia.Invoke()
+}

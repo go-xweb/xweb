@@ -1,6 +1,10 @@
 package xweb
 
-import "github.com/go-xweb/httpsession"
+import (
+	"time"
+
+	"github.com/go-xweb/httpsession"
+)
 
 type SessionInterface interface {
 	SetSessions(*httpsession.Session)
@@ -10,8 +14,18 @@ type SessionInterceptor struct {
 	sessionMgr *httpsession.Manager
 }
 
-func NewSessionInterceptor(sessionMgr *httpsession.Manager) *SessionInterceptor {
-	return &SessionInterceptor{sessionMgr: sessionMgr}
+func NewSessionInterceptor(app *App) *SessionInterceptor {
+	if app.Server.SessionManager != nil {
+		app.SessionManager = app.Server.SessionManager
+	} else {
+		app.SessionManager = httpsession.Default()
+		if app.AppConfig.SessionTimeout > time.Second {
+			app.SessionManager.SetMaxAge(app.AppConfig.SessionTimeout)
+		}
+		app.SessionManager.Run()
+	}
+
+	return &SessionInterceptor{sessionMgr: app.SessionManager}
 }
 
 func (itor *SessionInterceptor) Intercept(ia *Invocation) {

@@ -105,61 +105,48 @@ func (a *App) initApp() {
 		a.Logger = a.Server.Logger
 	}
 
-	a.Use(&LogInterceptor{})
-	a.Use(NewPanicInterceptor(a.AppConfig.Mode == Debug))
+	a.Use(
+		&LogInterceptor{},
+		NewPanicInterceptor(a.AppConfig.Mode == Debug),
+	)
 
 	if a.Server.Config.EnableGzip {
 		a.Use(&GZipInterceptor{})
 	}
 
-	a.Use(&ReturnInterceptor{})
-	a.Use(&StaticInterceptor{
-		RootPath: a.AppConfig.StaticDir,
-		IndexFiles: []string{
-			"index.html",
-			"index.htm",
+	a.Use(
+		&ReturnInterceptor{},
+		&StaticInterceptor{
+			RootPath: a.AppConfig.StaticDir,
+			IndexFiles: []string{
+				"index.html",
+				"index.htm",
+			},
 		},
-	})
-
-	a.Use(&InitInterceptor{},
+		&InitInterceptor{},
 		&BeforeInterceptor{},
 		&AfterInterceptor{},
+		&InjectInterceptor{},
 	)
 
 	if a.AppConfig.FormMapToStruct {
 		a.Use(&BindInterceptor{})
 	}
 
-	a.Use(&InjectInterceptor{})
-
 	if a.AppConfig.StaticFileVersion {
-		a.StaticVerMgr.Init(a, a.AppConfig.StaticDir)
-		a.FuncMaps["StaticUrl"] = a.StaticUrl
+		a.Use(NewStaticVerInterceptor(a))
 	}
 
 	if a.AppConfig.CacheTemplates {
-		a.TemplateMgr.Init(a, a.AppConfig.TemplateDir, a.AppConfig.ReloadTemplates)
+		a.Use(NewTemplateInterceptor(a))
 	}
 
 	if a.AppConfig.CheckXsrf {
-		a.Use(&XsrfInterceptor{})
-		a.FuncMaps["XsrfName"] = XsrfName
+		a.Use(NewXsrfInterceptor(a))
 	}
 
-	a.VarMaps["XwebVer"] = Version
-
 	if a.AppConfig.SessionOn {
-		if a.Server.SessionManager != nil {
-			a.SessionManager = a.Server.SessionManager
-		} else {
-			a.SessionManager = httpsession.Default()
-			if a.AppConfig.SessionTimeout > time.Second {
-				a.SessionManager.SetMaxAge(a.AppConfig.SessionTimeout)
-			}
-			a.SessionManager.Run()
-		}
-
-		a.Use(NewSessionInterceptor(a.SessionManager))
+		a.Use(NewSessionInterceptor(a))
 	}
 }
 
@@ -255,16 +242,6 @@ func (app *App) Panicf(format string, params ...interface{}) {
 	app.Logger.Panicf("["+app.Name+"] "+format, params...)
 }
 
-/*
-func (app *App) filter(w http.ResponseWriter, req *http.Request) bool {
-	for _, filter := range app.filters {
-		if !filter.Do(w, req) {
-			return false
-		}
-	}
-	return true
-}*/
-
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	//ignore errors from ParseForm because it's usually harmless.
 	ct := req.Header.Get("Content-Type")
@@ -281,10 +258,6 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 
 	//Set the default content-type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	/*if !a.filter(w, req) {
-		a.Info(req.Method, 302, req.URL.Path)
-		return
-	}*/
 
 	var ac = ActionContext{}
 	ia := NewInvocation(a, a.interceptors, req, NewResponseWriter(w), &ac)
@@ -377,23 +350,6 @@ func (a *App) error(w http.ResponseWriter, status int, content string) error {
 		status, statusText[status], content, Version)
 	_, err := w.Write([]byte(res))
 	return err
-}
-
-func (a *App) StaticUrl(url string) string {
-	var basePath string
-	if a.AppConfig.StaticDir == RootApp().AppConfig.StaticDir {
-		basePath = RootApp().BasePath
-	} else {
-		basePath = a.BasePath
-	}
-	if !a.AppConfig.StaticFileVersion {
-		return path.Join(basePath, url)
-	}
-	ver := a.StaticVerMgr.GetVersion(url)
-	if ver == "" {
-		return path.Join(basePath, url)
-	}
-	return path.Join(basePath, url+"?v="+ver)
 }
 
 var (
