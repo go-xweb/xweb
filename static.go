@@ -185,17 +185,26 @@ func (self *StaticVerMgr) CacheItem(url string) {
 	}
 }
 
-func (a *App) StaticUrl(url string) string {
+func (a *App) StaticUrlNoVer(url string) string {
 	var basePath string
 	if a.AppConfig.StaticDir == RootApp().AppConfig.StaticDir {
 		basePath = RootApp().BasePath
 	} else {
 		basePath = a.BasePath
 	}
-	if !a.AppConfig.StaticFileVersion {
-		return path.Join(basePath, url)
+
+	return path.Join(basePath, url)
+}
+
+func (a *App) StaticUrl(url string, getver func(string) string) string {
+	var basePath string
+	if a.AppConfig.StaticDir == RootApp().AppConfig.StaticDir {
+		basePath = RootApp().BasePath
+	} else {
+		basePath = a.BasePath
 	}
-	ver := a.StaticVerMgr.GetVersion(url)
+
+	ver := getver(url)
 	if ver == "" {
 		return path.Join(basePath, url)
 	}
@@ -203,11 +212,19 @@ func (a *App) StaticUrl(url string) string {
 }
 
 type StaticVerInterceptor struct {
+	staticMgr *StaticVerMgr
 }
 
-func NewStaticVerInterceptor(app *App) *StaticVerInterceptor {
-	app.StaticVerMgr.Init(app, app.AppConfig.StaticDir)
-	return &StaticVerInterceptor{}
+func NewStaticVerInterceptor(app *App, staticDir string) *StaticVerInterceptor {
+	staticMgr := new(StaticVerMgr)
+	staticMgr.Init(app, staticDir)
+
+	app.FuncMaps["StaticUrl"] = func(url string) string {
+		return app.StaticUrl(url, staticMgr.GetVersion)
+	}
+	return &StaticVerInterceptor{
+		staticMgr: staticMgr,
+	}
 }
 
 func (itor *StaticVerInterceptor) Intercept(ia *Invocation) {

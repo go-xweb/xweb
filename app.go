@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -16,11 +15,10 @@ import (
 )
 
 type App struct {
-	BasePath string
-	Name     string //[SWH|+]
-	Routes   []Route
-	RoutesEq map[string]map[string]Route
-	//filters         []Filter
+	BasePath        string
+	Name            string //[SWH|+]
+	Routes          []Route
+	RoutesEq        map[string]map[string]Route
 	Server          *Server
 	AppConfig       *AppConfig
 	Config          map[string]interface{}
@@ -31,11 +29,9 @@ type App struct {
 	Logger          *log.Logger
 	VarMaps         T
 	SessionManager  *httpsession.Manager //Session manager
-	RootTemplate    *template.Template
-	ErrorTemplate   *template.Template
-	StaticVerMgr    *StaticVerMgr
-	TemplateMgr     *TemplateMgr
-	interceptors    []Interceptor
+
+	//StaticVerMgr *StaticVerMgr
+	interceptors []Interceptor
 }
 
 const (
@@ -90,9 +86,8 @@ func NewApp(args ...string) *App {
 		ActionsNamePath: map[string]string{},
 		FuncMaps:        defaultFuncs,
 		VarMaps:         T{},
-		StaticVerMgr:    new(StaticVerMgr),
-		TemplateMgr:     new(TemplateMgr),
-		interceptors:    make([]Interceptor, 0),
+		//StaticVerMgr:    new(StaticVerMgr),
+		interceptors: make([]Interceptor, 0),
 	}
 }
 
@@ -134,12 +129,18 @@ func (a *App) initApp() {
 	}
 
 	if a.AppConfig.StaticFileVersion {
-		a.Use(NewStaticVerInterceptor(a))
+		a.Use(NewStaticVerInterceptor(a, a.AppConfig.StaticDir))
+	} else {
+		// even if don't use static file version, is still
+		a.FuncMaps["StaticUrl"] = a.StaticUrlNoVer
 	}
 
-	if a.AppConfig.CacheTemplates {
-		a.Use(NewTemplateInterceptor(a))
-	}
+	a.Use(NewRenderInterceptor(
+		a.AppConfig.TemplateDir,
+		a.AppConfig.ReloadTemplates,
+		a.AppConfig.CacheTemplates,
+		a,
+	))
 
 	if a.AppConfig.CheckXsrf {
 		a.Use(NewXsrfInterceptor(a))
@@ -156,14 +157,6 @@ func (a *App) SetStaticDir(dir string) {
 
 func (a *App) SetTemplateDir(path string) {
 	a.AppConfig.TemplateDir = path
-}
-
-func (a *App) getTemplatePath(name string) string {
-	templateFile := path.Join(a.AppConfig.TemplateDir, name)
-	if fileExists(templateFile) {
-		return templateFile
-	}
-	return ""
 }
 
 func (app *App) SetConfig(name string, val interface{}) {
@@ -310,17 +303,11 @@ func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 
 	if route.hasAction {
 		c := &Action{
-			T: T{},
-			f: T{},
 			Option: &ActionOption{
 				AutoMapForm: a.AppConfig.FormMapToStruct,
 				CheckXsrf:   a.AppConfig.CheckXsrf,
 			},
 			C: vc,
-		}
-
-		for k, v := range a.VarMaps {
-			c.T[k] = v
 		}
 
 		vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))

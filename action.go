@@ -7,9 +7,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -18,7 +16,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -40,21 +37,19 @@ type ActionOption struct {
 type Action struct {
 	Request *http.Request
 	App     *App
-	Option  *ActionOption
 	*ResponseWriter
-	C            reflect.Value
-	session      *httpsession.Session
-	logger       *log.Logger
-	T            T
-	f            T
-	RootTemplate *template.Template
-	requestBody  []byte
+	session *httpsession.Session
+	logger  *log.Logger
+	*Renderer
+
+	Option *ActionOption
+	C      reflect.Value
+
+	requestBody []byte
 }
 
 type Mapper struct {
 }
-
-type T map[string]interface{}
 
 //[SWH|+]:
 // Protocol returns request protocol name, such as HTTP/1.1 .
@@ -295,17 +290,34 @@ func (c *Action) NotFound(message string) error {
 	return c.Abort(404, message)
 }
 
-func (c *Action) Download(fpath string) error {
-	f, err := os.Open(fpath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+// @inject
+func (c *Action) SetRenderer(renderer *Renderer) {
+	c.Renderer = renderer
+}
 
-	fName := filepath.Base(fpath)
-	c.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fName))
-	_, err = io.Copy(c.ResponseWriter, f)
-	return err
+// @inject
+func (c *Action) SetRequest(req *http.Request) {
+	c.Request = req
+}
+
+// @inject
+func (c *Action) SetResponse(resp *ResponseWriter) {
+	c.ResponseWriter = resp
+}
+
+// @inject
+func (c *Action) SetApp(app *App) {
+	c.App = app
+}
+
+// @inject
+func (c *Action) SetLogger(logger *log.Logger) {
+	c.logger = logger
+}
+
+// @inject
+func (c *Action) SetSessions(session *httpsession.Session) {
+	c.session = session
 }
 
 // ParseStruct mapping forms' name and values to struct's field
@@ -434,7 +446,7 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 	if len(anotherc) > 0 {
 		t = reflect.TypeOf(anotherc[0]).Elem()
 	} else {
-		t = reflect.TypeOf(c.C.Interface()).Elem()
+		t = c.C.Type().Elem()
 	}
 
 	root, ok := c.App.ActionsPath[t]
@@ -463,10 +475,6 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 	}
 	rPath = strings.Replace(rPath, "//", "/", -1)
 	return c.Redirect(rPath)
-}
-
-func (c *Action) Flush() {
-	c.ResponseWriter.Flush()
 }
 
 func (c *Action) BasePath() string {
@@ -525,114 +533,6 @@ func (c *Action) Panicf(format string, params ...interface{}) {
 	c.App.Panicf(format, params...)
 }
 
-// Include method provide to template for {{include "xx.tmpl"}}
-func (c *Action) Include(tmplName string) interface{} {
-	t := c.RootTemplate.New(tmplName)
-	t.Funcs(c.GetFuncs())
-
-	content, err := c.getTemplate(tmplName)
-	if err != nil {
-		c.Errorf("RenderTemplate %v read err: %s", tmplName, err)
-		return ""
-	}
-
-	constr := string(content)
-	//[SWH|+]call hook
-	if r, err := XHook.Call("BeforeRender", constr, c); err == nil {
-		constr = XHook.String(r[0])
-	}
-	tmpl, err := t.Parse(constr)
-	if err != nil {
-		c.Errorf("Parse %v err: %v", tmplName, err)
-		return ""
-	}
-	newbytes := bytes.NewBufferString("")
-	err = tmpl.Execute(newbytes, c.C.Elem().Interface())
-	if err != nil {
-		c.Errorf("Parse %v err: %v", tmplName, err)
-		return ""
-	}
-
-	tplcontent, err := ioutil.ReadAll(newbytes)
-	if err != nil {
-		c.Errorf("Parse %v err: %v", tmplName, err)
-		return ""
-	}
-	return template.HTML(string(tplcontent))
-}
-
-// render the template with vars map, you can have zero or one map
-func (c *Action) NamedRender(name, content string, params ...*T) error {
-	c.f["include"] = c.Include
-	if c.App.AppConfig.SessionOn {
-		c.f["session"] = c.GetSession
-	}
-	c.f["cookie"] = c.Cookie
-	c.f["XsrfFormHtml"] = c.XsrfFormHtml
-	c.f["XsrfValue"] = c.XsrfValue
-	if len(params) > 0 {
-		c.AddTmplVars(params[0])
-	}
-
-	c.RootTemplate = template.New(name)
-	c.RootTemplate.Funcs(c.GetFuncs())
-
-	//[SWH|+]call hook
-	if r, err := XHook.Call("BeforeRender", content, c); err == nil {
-		content = XHook.String(r[0])
-	}
-	tmpl, err := c.RootTemplate.Parse(content)
-	if err == nil {
-		newbytes := bytes.NewBufferString("")
-		err = tmpl.Execute(newbytes, c.C.Interface())
-		if err == nil {
-			tplcontent, err := ioutil.ReadAll(newbytes)
-			if err == nil {
-				//[SWH|+]call hook
-				if r, err := XHook.Call("AfterRender", tplcontent, c); err == nil {
-					if ret := XHook.Value(r, 0); ret != nil {
-						tplcontent = ret.([]byte)
-					}
-				}
-				err = c.SetBody(tplcontent) //[SWH|+]
-			}
-		}
-	}
-	return err
-}
-
-func (c *Action) getTemplate(tmpl string) ([]byte, error) {
-	if c.App.AppConfig.CacheTemplates {
-		return c.App.TemplateMgr.GetTemplate(tmpl)
-	}
-	path := c.App.getTemplatePath(tmpl)
-	if path == "" {
-		return nil, errors.New(fmt.Sprintf("No template file %v found", path))
-	}
-
-	return ioutil.ReadFile(path)
-}
-
-// render the template with vars map, you can have zero or one map
-func (c *Action) Render(tmpl string, params ...*T) error {
-	content, err := c.getTemplate(tmpl)
-	if err == nil {
-		err = c.NamedRender(tmpl, string(content), params...)
-	}
-	return err
-}
-
-func (c *Action) GetFuncs() template.FuncMap {
-	funcs := c.App.FuncMaps
-	if c.f != nil {
-		for k, v := range c.f {
-			funcs[k] = v
-		}
-	}
-
-	return funcs
-}
-
 func (c *Action) SetConfig(name string, value interface{}) {
 	c.App.Config[name] = value
 }
@@ -641,67 +541,11 @@ func (c *Action) GetConfig(name string) interface{} {
 	return c.App.Config[name]
 }
 
-func (c *Action) RenderString(content string, params ...*T) error {
-	h := md5.New()
-	h.Write([]byte(content))
-	name := h.Sum(nil)
-	return c.NamedRender(string(name), content, params...)
-}
-
 // SetHeader sets a response header. the current value
 // of that header will be overwritten .
 func (c *Action) SetHeader(key string, value string) {
 	c.ResponseWriter.Header().Set(key, value)
 }
-
-// add a name value for template
-func (c *Action) AddTmplVar(name string, varOrFunc interface{}) {
-	if varOrFunc == nil {
-		c.T[name] = varOrFunc
-		return
-	}
-
-	if reflect.ValueOf(varOrFunc).Type().Kind() == reflect.Func {
-		c.f[name] = varOrFunc
-	} else {
-		c.T[name] = varOrFunc
-	}
-}
-
-// add names and values for template
-func (c *Action) AddTmplVars(t *T) {
-	for name, value := range *t {
-		c.AddTmplVar(name, value)
-	}
-}
-
-/*
-func (c *Action) ServeJson(obj interface{}) {
-	content, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		http.Error(c.ResponseWriter, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	c.SetHeader("Content-Length", strconv.Itoa(len(content)))
-	c.ResponseWriter.Header().Set("Content-Type", "application/json")
-	c.ResponseWriter.Write(content)
-}
-
-func (c *Action) ServeXml(obj interface{}) {
-	content, err := xml.Marshal(obj)
-	if err != nil {
-		http.Error(c.ResponseWriter, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	c.SetHeader("Content-Length", strconv.Itoa(len(content)))
-	c.ResponseWriter.Header().Set("Content-Type", "application/xml")
-	c.ResponseWriter.Write(content)
-}
-
-func (c *Action) ServeFile(fpath string) {
-	c.ResponseWriter.Header().Del("Content-Type")
-	http.ServeFile(c.ResponseWriter, c.Request, fpath)
-}*/
 
 func (c *Action) GetSlice(key string) []string {
 	return c.Request.Form[key]
@@ -750,33 +594,8 @@ func (c *Action) SaveToFile(fromfile, tofile string) error {
 	return err
 }
 
-// @inject
-func (c *Action) SetRequest(req *http.Request) {
-	c.Request = req
-}
-
-// @inject
-func (c *Action) SetResponse(resp *ResponseWriter) {
-	c.ResponseWriter = resp
-}
-
-// @inject
-func (c *Action) SetApp(app *App) {
-	c.App = app
-}
-
-// @inject
-func (c *Action) SetLogger(logger *log.Logger) {
-	c.logger = logger
-}
-
 func (c *Action) GetLogger() *log.Logger {
 	return c.logger
-}
-
-// @inject
-func (c *Action) SetSessions(session *httpsession.Session) {
-	c.session = session
 }
 
 func (c *Action) Session() *httpsession.Session {

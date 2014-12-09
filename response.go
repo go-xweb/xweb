@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -79,6 +82,19 @@ func (r *ResponseWriter) ServeJson(obj interface{}) error {
 	}
 	r.Header().Set("Content-Type", "application/json")
 	_, err = r.Write(dt)
+	return err
+}
+
+func (r *ResponseWriter) Download(fpath string) error {
+	f, err := os.Open(fpath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fName := filepath.Base(fpath)
+	r.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fName))
+	_, err = io.Copy(r, f)
 	return err
 }
 
