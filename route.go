@@ -12,6 +12,7 @@ type Route struct {
 	HttpMethods    map[string]bool //GET POST HEAD DELETE etc.
 	HandlerMethod  string          //struct method name
 	HandlerElement reflect.Type    //handler element
+	hasAction      bool
 }
 
 func (app *App) AddAction(cs ...interface{}) {
@@ -33,21 +34,34 @@ func (app *App) AutoAction(cs ...interface{}) {
 	}
 }
 
-func (a *App) addRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
+func (a *App) addRoute(r string, methods map[string]bool,
+	t reflect.Type, handler string, hasAction bool) {
 	cr, err := regexp.Compile(r)
 	if err != nil {
 		a.Errorf("Error in route regex %q: %s", r, err)
 		return
 	}
-	a.Routes = append(a.Routes, Route{Path: r, CompiledRegexp: cr, HttpMethods: methods, HandlerMethod: handler, HandlerElement: t})
+	a.Routes = append(a.Routes, Route{
+		Path:           r,
+		CompiledRegexp: cr,
+		HttpMethods:    methods,
+		HandlerMethod:  handler,
+		HandlerElement: t,
+		hasAction:      hasAction,
+	})
 }
 
-func (a *App) addEqRoute(r string, methods map[string]bool, t reflect.Type, handler string) {
+func (a *App) addEqRoute(r string, methods map[string]bool,
+	t reflect.Type, handler string, hasAction bool) {
 	if _, ok := a.RoutesEq[r]; !ok {
 		a.RoutesEq[r] = make(map[string]Route)
 	}
 	for v, _ := range methods {
-		a.RoutesEq[r][v] = Route{HandlerMethod: handler, HandlerElement: t}
+		a.RoutesEq[r][v] = Route{
+			HandlerMethod:  handler,
+			HandlerElement: t,
+			hasAction:      hasAction,
+		}
 	}
 }
 
@@ -56,10 +70,14 @@ var (
 )
 
 func (app *App) AddRouter(url string, c interface{}) {
-	t := reflect.TypeOf(c).Elem()
+	vc := reflect.ValueOf(c)
+	t := vc.Type().Elem()
 	app.ActionsPath[t] = url
 	app.Actions[t.Name()] = c
 	app.ActionsNamePath[t.Name()] = url
+
+	hasAction := vc.Elem().FieldByName("Action").IsValid()
+
 	for i := 0; i < t.NumField(); i++ {
 		if t.Field(i).Type != mapperType {
 			continue
@@ -110,10 +128,11 @@ func (app *App) AddRouter(url string, c interface{}) {
 			p = strings.TrimRight(url, "/") + "/" + name
 			isEq = true
 		}
+
 		if isEq {
-			app.addEqRoute(removeStick(p), methods, t, a)
+			app.addEqRoute(removeStick(p), methods, t, a, hasAction)
 		} else {
-			app.addRoute(removeStick(p), methods, t, a)
+			app.addRoute(removeStick(p), methods, t, a, hasAction)
 		}
 	}
 
@@ -124,7 +143,7 @@ func (app *App) AddRouter(url string, c interface{}) {
 	}
 	p := strings.TrimRight(url, "/") + "/"
 	methods := map[string]bool{"GET": true, "POST": true}
-	app.addEqRoute(removeStick(p), methods, t, "Execute")
+	app.addEqRoute(removeStick(p), methods, t, "Execute", hasAction)
 }
 
 func (a *App) findRoute(reqPath, allowMethod string) (Route, []reflect.Value, bool) {

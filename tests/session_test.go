@@ -15,6 +15,7 @@ type SessionAction struct {
 
 func (a *SessionAction) Execute() string {
 	a.SetSession("test", "1")
+	fmt.Printf("this---->%q\n", *a)
 	fmt.Println("test--->", a.GetSession("test"))
 	fmt.Println("contentlength:", a.Request.ContentLength)
 	fmt.Println("...", a.ResponseWriter.StatusCode)

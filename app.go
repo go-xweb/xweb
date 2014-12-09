@@ -308,8 +308,7 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 	vc := reflect.New(route.HandlerElement)
 
-	fieldA := vc.Elem().FieldByName("Action")
-	if fieldA.IsValid() {
+	if route.hasAction {
 		c := &Action{
 			T: T{},
 			f: T{},
@@ -317,19 +316,16 @@ func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 				AutoMapForm: a.AppConfig.FormMapToStruct,
 				CheckXsrf:   a.AppConfig.CheckXsrf,
 			},
+			C: vc,
 		}
 
 		for k, v := range a.VarMaps {
 			c.T[k] = v
 		}
 
-		fieldA.Set(reflect.ValueOf(c))
+		vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
 	}
 
-	fieldC := vc.Elem().FieldByName("C")
-	if fieldC.IsValid() {
-		fieldC.Set(reflect.ValueOf(vc))
-	}
 	return vc
 }
 
