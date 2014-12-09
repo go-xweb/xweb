@@ -24,13 +24,18 @@ type ToConversion interface {
 }
 
 type BindInterceptor struct {
+	logger *log.Logger
+}
+
+func (itor *BindInterceptor) SetLogger(logger *log.Logger) {
+	itor.logger = logger
 }
 
 func (inter *BindInterceptor) Intercept(ai *Invocation) {
 	action := ai.ActionContext().Action()
 	if action != nil {
 		vc := reflect.ValueOf(action)
-		namedStructMap(log.Std, vc.Elem(), ai.req, "")
+		namedStructMap(inter.logger, vc.Elem(), ai.req, "")
 	}
 	ai.Invoke()
 }
