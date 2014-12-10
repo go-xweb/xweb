@@ -1,9 +1,5 @@
 package xweb
 
-type Interceptor interface {
-	Intercept(*Context)
-}
-
 // handle return values
 type ReturnInterceptor struct {
 }

@@ -5,6 +5,10 @@ import (
 	"reflect"
 )
 
+type Interceptor interface {
+	Intercept(*Context)
+}
+
 type Context struct {
 	router       *Router
 	interceptors []Interceptor
