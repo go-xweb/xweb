@@ -2,7 +2,9 @@ package xweb
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
 )
 
 type AbortError interface {
@@ -48,4 +50,23 @@ func Forbidden(content ...string) error {
 
 func Unauthorized(content ...string) error {
 	return Abort(http.StatusUnauthorized, content...)
+}
+
+func (a *App) error(w http.ResponseWriter, status int, content string) error {
+	w.WriteHeader(status)
+	if errorTmpl == "" {
+		errTmplFile := a.AppConfig.TemplateDir + "/_error.html"
+		if file, err := os.Stat(errTmplFile); err == nil && !file.IsDir() {
+			if b, e := ioutil.ReadFile(errTmplFile); e == nil {
+				errorTmpl = string(b)
+			}
+		}
+		if errorTmpl == "" {
+			errorTmpl = defaultErrorTmpl
+		}
+	}
+	res := fmt.Sprintf(errorTmpl, status, statusText[status],
+		status, statusText[status], content, Version)
+	_, err := w.Write([]byte(res))
+	return err
 }

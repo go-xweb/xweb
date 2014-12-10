@@ -171,7 +171,7 @@ func (r *Renderer) RenderString(content string, params ...*T) error {
 	return r.NamedRender(string(name), content, params...)
 }
 
-type RenderInterface interface {
+type RendererInterface interface {
 	SetRenderer(render *Renderer)
 }
 
@@ -183,7 +183,7 @@ func getTemplatePath(templateDir, name string) string {
 	return ""
 }
 
-type RenderInterceptor struct {
+type Render struct {
 	templateDir string
 	templateMgr *TemplateMgr
 	FuncMaps    template.FuncMap
@@ -191,14 +191,28 @@ type RenderInterceptor struct {
 	logger      Logger
 }
 
-func (itor *RenderInterceptor) SetLogger(logger Logger) {
+func (render *Render) AddTmplVar(name string, varOrFun interface{}) {
+	if reflect.TypeOf(varOrFun).Kind() == reflect.Func {
+		render.FuncMaps[name] = varOrFun
+	} else {
+		render.VarMaps[name] = varOrFun
+	}
+}
+
+func (render *Render) AddTmplVars(t *T) {
+	for name, value := range *t {
+		render.AddTmplVar(name, value)
+	}
+}
+
+func (itor *Render) SetLogger(logger Logger) {
 	itor.logger = logger
 	itor.templateMgr.logger = logger
 }
 
-func NewRenderInterceptor(templateDir string,
-	reloadTemplates, cacheTemplates bool, app *App) *RenderInterceptor {
-	itor := &RenderInterceptor{
+func NewRender(templateDir string,
+	reloadTemplates, cacheTemplates bool, app *App) *Render {
+	itor := &Render{
 		templateDir: templateDir,
 		templateMgr: new(TemplateMgr),
 		FuncMaps:    defaultFuncs,
@@ -218,10 +232,10 @@ func NewRenderInterceptor(templateDir string,
 	return itor
 }
 
-func (itor *RenderInterceptor) Intercept(ia *Invocation) {
+func (itor *Render) Intercept(ia *Invocation) {
 	action := ia.ActionContext().Action()
 	if action != nil {
-		if rd, ok := action.(RenderInterface); ok {
+		if rd, ok := action.(RendererInterface); ok {
 			renderer := NewRenderer(
 				ia.Resp(),
 				itor.logger,

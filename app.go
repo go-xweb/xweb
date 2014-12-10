@@ -1,11 +1,7 @@
 package xweb
 
 import (
-	"fmt"
-	"html/template"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -16,16 +12,14 @@ import (
 type App struct {
 	*Injector
 	*Router
+	*Render
 
 	BasePath string
 	Name     string //[SWH|+]
 
 	Server    *Server
-	AppConfig *AppConfig
+	AppConfig AppConfig
 	Config    map[string]interface{}
-
-	FuncMaps template.FuncMap
-	VarMaps  T
 
 	// TODO: refactoring this
 	SessionManager *httpsession.Manager //Session manager
@@ -38,22 +32,6 @@ const (
 	Product
 )
 
-type AppConfig struct {
-	Mode              int
-	StaticDir         string
-	TemplateDir       string
-	SessionOn         bool
-	MaxUploadSize     int64
-	CookieSecret      string
-	StaticFileVersion bool
-	CacheTemplates    bool
-	ReloadTemplates   bool
-	CheckXsrf         bool
-	SessionTimeout    time.Duration
-	FormMapToStruct   bool //[SWH|+]
-	EnableHttpCache   bool //[SWH|+]
-}
-
 func NewApp(args ...string) *App {
 	path := args[0]
 	name := ""
@@ -63,27 +41,13 @@ func NewApp(args ...string) *App {
 		name = args[1]
 	}
 	return &App{
-		Injector: NewInjector(),
-		Router:   NewRouter(),
-		BasePath: path,
-		Name:     name, //[SWH|+]
-		AppConfig: &AppConfig{
-			Mode:              Product,
-			StaticDir:         "static",
-			TemplateDir:       "templates",
-			SessionOn:         true,
-			SessionTimeout:    3600,
-			MaxUploadSize:     10 * 1024 * 1024,
-			StaticFileVersion: true,
-			CacheTemplates:    true,
-			ReloadTemplates:   true,
-			CheckXsrf:         true,
-			FormMapToStruct:   true,
-		},
-		Config: map[string]interface{}{},
+		Injector:  NewInjector(),
+		Router:    NewRouter(),
+		BasePath:  path,
+		Name:      name, //[SWH|+]
+		AppConfig: DefaultAppConfig,
+		Config:    map[string]interface{}{},
 
-		FuncMaps:     defaultFuncs,
-		VarMaps:      T{},
 		interceptors: make([]Interceptor, 0),
 	}
 }
@@ -146,12 +110,14 @@ func (a *App) initApp() {
 		a.FuncMaps["StaticUrl"] = a.StaticUrlNoVer
 	}
 
-	a.Use(NewRenderInterceptor(
+	render := NewRender(
 		a.AppConfig.TemplateDir,
 		a.AppConfig.ReloadTemplates,
 		a.AppConfig.CacheTemplates,
 		a,
-	))
+	)
+	a.Render = render
+	a.Use(render)
 
 	if a.AppConfig.CheckXsrf {
 		a.Use(NewXsrfInterceptor(a))
@@ -179,20 +145,6 @@ func (app *App) SetConfig(name string, val interface{}) {
 
 func (app *App) GetConfig(name string) interface{} {
 	return app.Config[name]
-}
-
-func (app *App) AddTmplVar(name string, varOrFun interface{}) {
-	if reflect.TypeOf(varOrFun).Kind() == reflect.Func {
-		app.FuncMaps[name] = varOrFun
-	} else {
-		app.VarMaps[name] = varOrFun
-	}
-}
-
-func (app *App) AddTmplVars(t *T) {
-	for name, value := range *t {
-		app.AddTmplVar(name, value)
-	}
 }
 
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
@@ -276,25 +228,6 @@ func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 	}
 
 	return vc
-}
-
-func (a *App) error(w http.ResponseWriter, status int, content string) error {
-	w.WriteHeader(status)
-	if errorTmpl == "" {
-		errTmplFile := a.AppConfig.TemplateDir + "/_error.html"
-		if file, err := os.Stat(errTmplFile); err == nil && !file.IsDir() {
-			if b, e := ioutil.ReadFile(errTmplFile); e == nil {
-				errorTmpl = string(b)
-			}
-		}
-		if errorTmpl == "" {
-			errorTmpl = defaultErrorTmpl
-		}
-	}
-	res := fmt.Sprintf(errorTmpl, status, statusText[status],
-		status, statusText[status], content, Version)
-	_, err := w.Write([]byte(res))
-	return err
 }
 
 type AppInterface interface {

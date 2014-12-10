@@ -218,7 +218,7 @@ type StaticVerInterceptor struct {
 	app       *App
 }
 
-func (inter *StaticVerInterceptor) SetRender(render *RenderInterceptor) {
+func (inter *StaticVerInterceptor) SetRender(render *Render) {
 	render.FuncMaps["StaticUrl"] = func(url string) string {
 		return inter.app.StaticUrl(url, inter.staticMgr.GetVersion)
 	}
