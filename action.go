@@ -24,11 +24,6 @@ import (
 	"github.com/go-xweb/httpsession"
 )
 
-type ActionOption struct {
-	AutoMapForm bool
-	CheckXsrf   bool
-}
-
 // An Action object or it's substruct is created for every incoming HTTP request.
 // It provides information
 // about the request, including the http.Request object, the GET and POST params,
@@ -41,8 +36,7 @@ type Action struct {
 	Logger
 	*Renderer
 
-	Option *ActionOption
-	C      reflect.Value
+	C reflect.Value
 
 	requestBody []byte
 }
@@ -279,32 +273,32 @@ func (c *Action) NotFound(message string) error {
 	return c.Abort(404, message)
 }
 
-// @inject
+// +inject
 func (c *Action) SetRenderer(renderer *Renderer) {
 	c.Renderer = renderer
 }
 
-// @inject
+// +inject
 func (c *Action) SetRequest(req *http.Request) {
 	c.Request = req
 }
 
-// @inject
+// +inject
 func (c *Action) SetResponse(resp *ResponseWriter) {
 	c.ResponseWriter = resp
 }
 
-// @inject
+// +inject
 func (c *Action) SetApp(app *App) {
 	c.App = app
 }
 
-// @inject
+// +inject
 func (c *Action) SetLogger(logger Logger) {
 	c.Logger = logger
 }
 
-// @inject
+// +inject
 func (c *Action) SetSessions(session *httpsession.Session) {
 	c.session = session
 }

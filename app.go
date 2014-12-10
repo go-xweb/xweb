@@ -132,6 +132,7 @@ func (a *App) initApp() {
 		&AfterInterceptor{},
 		&RequestInterceptor{},
 		&ResponseInterceptor{},
+		&AppInterceptor{},
 	)
 
 	if a.AppConfig.FormMapToStruct {
@@ -294,4 +295,22 @@ func (a *App) error(w http.ResponseWriter, status int, content string) error {
 		status, statusText[status], content, Version)
 	_, err := w.Write([]byte(res))
 	return err
+}
+
+type AppInterface interface {
+	SetApp(*App)
+}
+
+type AppInterceptor struct {
+	app *App
+}
+
+func (inter *AppInterceptor) Intercept(ia *Invocation) {
+	action := ia.ActionContext().Action()
+	if action != nil {
+		if apper, ok := action.(AppInterface); ok {
+			apper.SetApp(inter.app)
+		}
+	}
+	ia.Invoke()
 }
