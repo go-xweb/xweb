@@ -12,6 +12,7 @@ type App struct {
 	*Injector
 	*Router
 	*Render
+	*Configs
 
 	BasePath string
 	Name     string //[SWH|+]
@@ -33,19 +34,20 @@ const (
 
 func NewApp(args ...string) *App {
 	basePath := args[0]
-	name := ""
+	var name string
 	if len(args) == 1 {
 		name = strings.Replace(basePath, "/", "_", -1)
 	} else {
 		name = args[1]
 	}
 	return &App{
-		Injector:  NewInjector(),
-		Router:    NewRouter(basePath),
+		Injector: NewInjector(),
+		Router:   NewRouter(basePath),
+		Configs:  NewConfigs(),
+
 		BasePath:  basePath,
-		Name:      name, //[SWH|+]
+		Name:      name,
 		AppConfig: DefaultAppConfig,
-		Config:    map[string]interface{}{},
 
 		interceptors: make([]Interceptor, 0),
 	}
@@ -70,6 +72,7 @@ func (a *App) initApp() {
 	a.Map(logger)
 
 	a.Use(
+		a.Configs,
 		NewLogInterceptor(logger),
 		NewPanicInterceptor(
 			a.Server.Config.RecoverPanic,
@@ -135,14 +138,6 @@ func (a *App) SetStaticDir(dir string) {
 
 func (a *App) SetTemplateDir(path string) {
 	a.AppConfig.TemplateDir = path
-}
-
-func (app *App) SetConfig(name string, val interface{}) {
-	app.Config[name] = val
-}
-
-func (app *App) GetConfig(name string) interface{} {
-	return app.Config[name]
 }
 
 func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {

@@ -32,6 +32,7 @@ type Action struct {
 	Request *http.Request
 	App     *App
 	*ResponseWriter
+	*Configs
 	session *httpsession.Session
 	Logger
 	*Renderer
@@ -303,6 +304,11 @@ func (c *Action) SetLogger(logger Logger) {
 // +inject
 func (c *Action) SetSessions(session *httpsession.Session) {
 	c.session = session
+}
+
+// +inject
+func (c *Action) SetConfigs(configs *Configs) {
+	c.Configs = configs
 }
 
 // ParseStruct mapping forms' name and values to struct's field
