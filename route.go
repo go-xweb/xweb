@@ -12,6 +12,7 @@ var (
 )*/
 
 type Router struct {
+	basePath        string
 	Routes          []*Route
 	RoutesEq        map[string]map[string]*Route
 	Actions         map[string]interface{}
@@ -19,8 +20,9 @@ type Router struct {
 	ActionsNamePath map[string]string
 }
 
-func NewRouter() *Router {
+func NewRouter(basePath string) *Router {
 	return &Router{
+		basePath:        basePath,
 		Routes:          make([]*Route, 0),
 		RoutesEq:        make(map[string]map[string]*Route),
 		Actions:         map[string]interface{}{},
@@ -58,31 +60,30 @@ func (route *Route) newAction() reflect.Value {
 	return vc
 }
 
-func (app *App) AddAction(cs ...interface{}) {
+func (router *Router) AddAction(cs ...interface{}) {
 	for _, c := range cs {
-		app.AddRouter(app.BasePath, c)
+		router.AddRouter(router.basePath, c)
 	}
 }
 
-func (app *App) AutoAction(cs ...interface{}) {
+func (router *Router) AutoAction(cs ...interface{}) {
 	for _, c := range cs {
 		t := reflect.Indirect(reflect.ValueOf(c)).Type()
 		name := t.Name()
 		if strings.HasSuffix(name, "Action") {
 			name = strings.ToLower(name[:len(name)-6])
 		}
-		app.AddRouter(JoinPath(app.BasePath, name), c)
+		router.AddRouter(JoinPath(router.basePath, name), c)
 	}
 }
 
-func (a *App) addRoute(r string, methods map[string]bool,
+func (router *Router) addRoute(r string, methods map[string]bool,
 	t reflect.Type, handler string, hasAction bool) error {
 	cr, err := regexp.Compile(r)
 	if err != nil {
-		//a.Logger.Errorf("Error in route regex %q: %s", r, err)
 		return err
 	}
-	a.Routes = append(a.Routes, &Route{
+	router.Routes = append(router.Routes, &Route{
 		Path:           r,
 		CompiledRegexp: cr,
 		HttpMethods:    methods,
@@ -93,13 +94,13 @@ func (a *App) addRoute(r string, methods map[string]bool,
 	return nil
 }
 
-func (a *App) addEqRoute(r string, methods map[string]bool,
+func (router *Router) addEqRoute(r string, methods map[string]bool,
 	t reflect.Type, handler string, hasAction bool) {
-	if _, ok := a.RoutesEq[r]; !ok {
-		a.RoutesEq[r] = make(map[string]*Route)
+	if _, ok := router.RoutesEq[r]; !ok {
+		router.RoutesEq[r] = make(map[string]*Route)
 	}
 	for v, _ := range methods {
-		a.RoutesEq[r][v] = &Route{
+		router.RoutesEq[r][v] = &Route{
 			HandlerMethod:  handler,
 			HandlerElement: t,
 			hasAction:      hasAction,
@@ -111,12 +112,12 @@ var (
 	mapperType = reflect.TypeOf(Mapper{})
 )
 
-func (app *App) AddRouter(url string, c interface{}) {
+func (router *Router) AddRouter(url string, c interface{}) {
 	vc := reflect.ValueOf(c)
 	t := vc.Type().Elem()
-	app.ActionsPath[t] = url
-	app.Actions[t.Name()] = c
-	app.ActionsNamePath[t.Name()] = url
+	router.ActionsPath[t] = url
+	router.Actions[t.Name()] = c
+	router.ActionsNamePath[t.Name()] = url
 
 	hasAction := vc.Elem().FieldByName("Action").IsValid()
 
@@ -172,9 +173,9 @@ func (app *App) AddRouter(url string, c interface{}) {
 		}
 
 		if isEq {
-			app.addEqRoute(removeStick(p), methods, t, a, hasAction)
+			router.addEqRoute(removeStick(p), methods, t, a, hasAction)
 		} else {
-			app.addRoute(removeStick(p), methods, t, a, hasAction)
+			router.addRoute(removeStick(p), methods, t, a, hasAction)
 		}
 	}
 
@@ -185,7 +186,7 @@ func (app *App) AddRouter(url string, c interface{}) {
 	}
 	p := strings.TrimRight(url, "/") + "/"
 	methods := map[string]bool{"GET": true, "POST": true}
-	app.addEqRoute(removeStick(p), methods, t, "Do", hasAction)
+	router.addEqRoute(removeStick(p), methods, t, "Do", hasAction)
 }
 
 func (router *Router) Match(reqPath, allowMethod string) (*Route, []reflect.Value) {

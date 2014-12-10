@@ -32,17 +32,17 @@ const (
 )
 
 func NewApp(args ...string) *App {
-	path := args[0]
+	basePath := args[0]
 	name := ""
 	if len(args) == 1 {
-		name = strings.Replace(path, "/", "_", -1)
+		name = strings.Replace(basePath, "/", "_", -1)
 	} else {
 		name = args[1]
 	}
 	return &App{
 		Injector:  NewInjector(),
-		Router:    NewRouter(),
-		BasePath:  path,
+		Router:    NewRouter(basePath),
+		BasePath:  basePath,
 		Name:      name, //[SWH|+]
 		AppConfig: DefaultAppConfig,
 		Config:    map[string]interface{}{},
