@@ -9,8 +9,6 @@ import (
 	"io/ioutil"
 	"path"
 	"reflect"
-
-	"github.com/go-xweb/log"
 )
 
 type T map[string]interface{}
@@ -18,7 +16,7 @@ type T map[string]interface{}
 type Renderer struct {
 	resp         *ResponseWriter
 	templateMgr  *TemplateMgr
-	logger       *log.Logger
+	logger       Logger
 	T            T
 	RootTemplate *template.Template
 	funcs        template.FuncMap
@@ -28,7 +26,7 @@ type Renderer struct {
 }
 
 func NewRenderer(resp *ResponseWriter,
-	logger *log.Logger,
+	logger Logger,
 	templateMgr *TemplateMgr,
 	funcs template.FuncMap,
 	action interface{}) *Renderer {
@@ -190,10 +188,10 @@ type RenderInterceptor struct {
 	templateMgr *TemplateMgr
 	FuncMaps    template.FuncMap
 	VarMaps     T
-	logger      *log.Logger
+	logger      Logger
 }
 
-func (itor *RenderInterceptor) SetLogger(logger *log.Logger) {
+func (itor *RenderInterceptor) SetLogger(logger Logger) {
 	itor.logger = logger
 	itor.templateMgr.logger = logger
 }

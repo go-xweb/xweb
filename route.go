@@ -6,6 +6,73 @@ import (
 	"strings"
 )
 
+var (
+	sc *Action = &Action{}
+)
+
+type Router struct {
+	Routes          []Route
+	RoutesEq        map[string]map[string]Route
+	Actions         map[string]interface{}
+	ActionsPath     map[reflect.Type]string
+	ActionsNamePath map[string]string
+}
+
+func NewRouter() *Router {
+	return &Router{
+		RoutesEq:        make(map[string]map[string]Route),
+		Actions:         map[string]interface{}{},
+		ActionsPath:     map[reflect.Type]string{},
+		ActionsNamePath: map[string]string{},
+	}
+}
+
+func (router *Router) Action(name string) interface{} {
+	if v, ok := router.Actions[name]; ok {
+		return v
+	}
+	return nil
+}
+
+/*
+example:
+{
+	"AdminAction":{
+		"Index":["GET","POST"],
+		"Add":	["GET","POST"],
+		"Edit":	["GET","POST"]
+	}
+}
+*/
+func (router *Router) Nodes() (r map[string]map[string][]string) {
+	r = make(map[string]map[string][]string)
+	for _, val := range router.Routes {
+		name := val.HandlerElement.Name()
+		if _, ok := r[name]; !ok {
+			r[name] = make(map[string][]string)
+		}
+		if _, ok := r[name][val.HandlerMethod]; !ok {
+			r[name][val.HandlerMethod] = make([]string, 0)
+		}
+		for k, _ := range val.HttpMethods {
+			r[name][val.HandlerMethod] = append(r[name][val.HandlerMethod], k) //FUNC1:[POST,GET]
+		}
+	}
+	for _, vals := range router.RoutesEq {
+		for k, v := range vals {
+			name := v.HandlerElement.Name()
+			if _, ok := r[name]; !ok {
+				r[name] = make(map[string][]string)
+			}
+			if _, ok := r[name][v.HandlerMethod]; !ok {
+				r[name][v.HandlerMethod] = make([]string, 0)
+			}
+			r[name][v.HandlerMethod] = append(r[name][v.HandlerMethod], k) //FUNC1:[POST,GET]
+		}
+	}
+	return
+}
+
 type Route struct {
 	Path           string          //path string
 	CompiledRegexp *regexp.Regexp  //path regexp

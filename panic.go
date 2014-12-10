@@ -4,17 +4,15 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
-
-	"github.com/go-xweb/log"
 )
 
 type PanicInterceptor struct {
 	recoverPanic bool
 	debug        bool
-	logger       *log.Logger
+	logger       Logger
 }
 
-func (inter *PanicInterceptor) SetLogger(logger *log.Logger) {
+func (inter *PanicInterceptor) SetLogger(logger Logger) {
 	inter.logger = logger
 }
 

@@ -1,16 +1,29 @@
 package xweb
 
-import "github.com/go-xweb/log"
+type Logger interface {
+	Debugf(format string, v ...interface{})
+	Debug(v ...interface{})
+	Infof(format string, v ...interface{})
+	Info(v ...interface{})
+	Warnf(format string, v ...interface{})
+	Warn(v ...interface{})
+	Errorf(format string, v ...interface{})
+	Error(v ...interface{})
+	Fatal(v ...interface{})
+	Fatalf(format string, v ...interface{})
+	Panic(v ...interface{})
+	Panicf(format string, v ...interface{})
+}
 
 type LogInterface interface {
-	SetLogger(*log.Logger)
+	SetLogger(Logger)
 }
 
 type LogInterceptor struct {
-	logger *log.Logger
+	logger Logger
 }
 
-func NewLogInterceptor(logger *log.Logger) *LogInterceptor {
+func NewLogInterceptor(logger Logger) *LogInterceptor {
 	return &LogInterceptor{
 		logger: logger,
 	}

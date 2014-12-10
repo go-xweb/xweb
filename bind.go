@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/go-xweb/log"
 )
 
 // a struct implements this interface can be convert from request param to a struct
@@ -23,20 +21,31 @@ type ToConversion interface {
 	ToString() string
 }
 
-type BindInterceptor struct {
-	logger *log.Logger
+type BindOptionInterface interface {
+	AutoMapForm() bool
 }
 
-func (itor *BindInterceptor) SetLogger(logger *log.Logger) {
+type BindInterceptor struct {
+	logger Logger
+}
+
+func (itor *BindInterceptor) SetLogger(logger Logger) {
 	itor.logger = logger
 }
 
 func (inter *BindInterceptor) Intercept(ai *Invocation) {
 	action := ai.ActionContext().Action()
 	if action != nil {
+		// if action ask don't automap then continue
+		if checker, ok := action.(BindOptionInterface); ok && !checker.AutoMapForm() {
+			ai.Invoke()
+			return
+		}
+
 		vc := reflect.ValueOf(action)
 		namedStructMap(inter.logger, vc.Elem(), ai.req, "")
 	}
+
 	ai.Invoke()
 }
 
@@ -79,7 +88,7 @@ func splitJson(s string) ([]string, error) {
 	return res, nil
 }
 
-func namedStructMap(logger *log.Logger, vc reflect.Value, r *http.Request, topName string) error {
+func namedStructMap(logger Logger, vc reflect.Value, r *http.Request, topName string) error {
 	for k, t := range r.Form {
 		if k == XSRF_TAG || k == "" {
 			continue

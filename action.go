@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/go-xweb/httpsession"
-	"github.com/go-xweb/log"
 )
 
 type ActionOption struct {
@@ -39,7 +38,7 @@ type Action struct {
 	App     *App
 	*ResponseWriter
 	session *httpsession.Session
-	logger  *log.Logger
+	Logger
 	*Renderer
 
 	Option *ActionOption
@@ -301,8 +300,8 @@ func (c *Action) SetApp(app *App) {
 }
 
 // @inject
-func (c *Action) SetLogger(logger *log.Logger) {
-	c.logger = logger
+func (c *Action) SetLogger(logger Logger) {
+	c.Logger = logger
 }
 
 // @inject
@@ -335,7 +334,7 @@ func (c *Action) MapForm(st interface{}, names ...string) error {
 	} else {
 		name = names[0]
 	}
-	return namedStructMap(c.GetLogger(), v.Elem(), c.Request, name)
+	return namedStructMap(c.logger, v.Elem(), c.Request, name)
 }
 
 // ContentType sets the Content-Type header for an HTTP response.
@@ -475,54 +474,6 @@ func (c *Action) Namespace() string {
 	return c.App.ActionsPath[c.C.Type()]
 }
 
-func (c *Action) Debug(params ...interface{}) {
-	c.logger.Debug(params...)
-}
-
-func (c *Action) Info(params ...interface{}) {
-	c.logger.Info(params...)
-}
-
-func (c *Action) Warn(params ...interface{}) {
-	c.logger.Warn(params...)
-}
-
-func (c *Action) Error(params ...interface{}) {
-	c.logger.Error(params...)
-}
-
-func (c *Action) Fatal(params ...interface{}) {
-	c.logger.Fatal(params...)
-}
-
-func (c *Action) Panic(params ...interface{}) {
-	c.logger.Panic(params...)
-}
-
-func (c *Action) Debugf(format string, params ...interface{}) {
-	c.logger.Debugf(format, params...)
-}
-
-func (c *Action) Infof(format string, params ...interface{}) {
-	c.logger.Infof(format, params...)
-}
-
-func (c *Action) Warnf(format string, params ...interface{}) {
-	c.logger.Warnf(format, params...)
-}
-
-func (c *Action) Errorf(format string, params ...interface{}) {
-	c.logger.Errorf(format, params...)
-}
-
-func (c *Action) Fatalf(format string, params ...interface{}) {
-	c.logger.Fatalf(format, params...)
-}
-
-func (c *Action) Panicf(format string, params ...interface{}) {
-	c.logger.Panicf(format, params...)
-}
-
 func (c *Action) SetConfig(name string, value interface{}) {
 	c.App.Config[name] = value
 }
@@ -582,10 +533,6 @@ func (c *Action) SaveToFile(fromfile, tofile string) error {
 	defer f.Close()
 	_, err = io.Copy(f, file)
 	return err
-}
-
-func (c *Action) GetLogger() *log.Logger {
-	return c.logger
 }
 
 func (c *Action) Session() *httpsession.Session {

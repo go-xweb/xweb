@@ -44,3 +44,46 @@ func TestXsrf(t *testing.T) {
 		}
 	}
 }
+
+type NoCheckXsrfAction struct {
+}
+
+func (NoCheckXsrfAction) CheckXsrf() bool {
+	return false
+}
+
+func (NoCheckXsrfAction) Execute() string {
+	return "this action will not check xsrf"
+}
+
+func TestXsrfNoCheck(t *testing.T) {
+	xweb.MainServer().Config.EnableGzip = false
+	xweb.RootApp().AppConfig.CheckXsrf = true
+	xweb.AddAction(new(NoCheckXsrfAction))
+	go func() {
+		xweb.Run("0.0.0.0:9996")
+	}()
+
+	resp, err := http.Post("http://localhost:9996/?id=1&name=lllll", "", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer resp.Body.Close()
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	fmt.Println(string(bs))
+	if resp.StatusCode != http.StatusOK {
+		t.Error("should not say xsrf error.")
+		return
+	}
+
+	if string(bs) != "this action will not check xsrf" {
+		t.Error("should not say xsrf error.")
+	}
+}

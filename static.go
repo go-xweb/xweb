@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/go-xweb/log"
 	"github.com/howeyc/fsnotify"
 )
 
@@ -18,7 +17,7 @@ type StaticVerMgr struct {
 	mutex   *sync.Mutex
 	Path    string
 	Ignores map[string]bool
-	logger  *log.Logger
+	logger  Logger
 }
 
 func (self *StaticVerMgr) Moniter(staticPath string) error {
@@ -143,7 +142,7 @@ func (self *StaticVerMgr) getFileVer(url string) string {
 func (self *StaticVerMgr) CacheAll(staticPath string) error {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
-	//fmt.Print("Getting static file version number, please wait... ")
+
 	err := filepath.Walk(staticPath, func(f string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
@@ -154,7 +153,6 @@ func (self *StaticVerMgr) CacheAll(staticPath string) error {
 		}
 		return nil
 	})
-	//fmt.Println("Complete.")
 	return err
 }
 
@@ -217,21 +215,24 @@ func (a *App) StaticUrl(url string, getver func(string) string) string {
 
 type StaticVerInterceptor struct {
 	staticMgr *StaticVerMgr
+	app       *App
 }
 
-func NewStaticVerInterceptor(logger *log.Logger, staticDir string, app *App) *StaticVerInterceptor {
+func (inter *StaticVerInterceptor) SetRender(render *RenderInterceptor) {
+	render.FuncMaps["StaticUrl"] = func(url string) string {
+		return inter.app.StaticUrl(url, inter.staticMgr.GetVersion)
+	}
+}
+
+func NewStaticVerInterceptor(logger Logger, staticDir string, app *App) *StaticVerInterceptor {
 	staticMgr := &StaticVerMgr{
 		logger: logger,
 	}
 	staticMgr.Init(staticDir)
 
-	// TODO: refactoring this
-	app.FuncMaps["StaticUrl"] = func(url string) string {
-		return app.StaticUrl(url, staticMgr.GetVersion)
-	}
-
 	return &StaticVerInterceptor{
 		staticMgr: staticMgr,
+		app:       app,
 	}
 }
 

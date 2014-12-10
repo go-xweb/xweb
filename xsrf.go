@@ -16,6 +16,10 @@ func XsrfName() string {
 	return XSRF_TAG
 }
 
+type XsrfOptionInterface interface {
+	CheckXsrf() bool
+}
+
 type XsrfInterceptor struct {
 }
 
@@ -25,7 +29,14 @@ func NewXsrfInterceptor(app *App) *XsrfInterceptor {
 }
 
 func (inter *XsrfInterceptor) Intercept(ia *Invocation) {
-	if ia.Req().Method == "POST" {
+	action := ia.ActionContext().Action()
+	if action != nil && ia.Req().Method == "POST" {
+		// if action implements check xsrf option and ask not check then return
+		if checker, ok := action.(XsrfOptionInterface); ok && !checker.CheckXsrf() {
+			ia.Invoke()
+			return
+		}
+
 		res, err := ia.Req().Cookie(XSRF_TAG)
 		formVals := ia.Req().Form[XSRF_TAG]
 		var formVal string

@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/go-xweb/log"
 	"github.com/howeyc/fsnotify"
 )
 
@@ -223,7 +221,7 @@ type TemplateMgr struct {
 	Ignores      map[string]bool
 	IsReload     bool
 	app          *App
-	logger       *log.Logger
+	logger       Logger
 	Preprocessor func([]byte) []byte
 }
 

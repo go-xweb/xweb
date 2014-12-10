@@ -42,8 +42,10 @@ func (itor *AfterInterceptor) Intercept(ai *Invocation) {
 
 	if after, ok := action.(AfterInterface); ok {
 		route := ai.ActionContext().getRoute()
-		if !after.After(route.HandlerElement.Name(),
-			route.HandlerMethod, ai.Result) {
+		if !after.After(
+			route.HandlerElement.Name(),
+			route.HandlerMethod,
+			ai.Result) {
 			fmt.Println("since we return false, but I cannot stop the other interceptors")
 		}
 	}

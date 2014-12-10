@@ -15,23 +15,21 @@ import (
 
 type App struct {
 	*Injector
+	*Router
 
-	BasePath        string
-	Name            string //[SWH|+]
-	Routes          []Route
-	RoutesEq        map[string]map[string]Route
-	Server          *Server
-	AppConfig       *AppConfig
-	Config          map[string]interface{}
-	Actions         map[string]interface{}
-	ActionsPath     map[reflect.Type]string
-	ActionsNamePath map[string]string
-	FuncMaps        template.FuncMap
-	//Logger          *log.Logger
-	VarMaps        T
+	BasePath string
+	Name     string //[SWH|+]
+
+	Server    *Server
+	AppConfig *AppConfig
+	Config    map[string]interface{}
+
+	FuncMaps template.FuncMap
+	VarMaps  T
+
+	// TODO: refactoring this
 	SessionManager *httpsession.Manager //Session manager
 
-	//StaticVerMgr *StaticVerMgr
 	interceptors []Interceptor
 }
 
@@ -66,9 +64,9 @@ func NewApp(args ...string) *App {
 	}
 	return &App{
 		Injector: NewInjector(),
+		Router:   NewRouter(),
 		BasePath: path,
 		Name:     name, //[SWH|+]
-		RoutesEq: make(map[string]map[string]Route),
 		AppConfig: &AppConfig{
 			Mode:              Product,
 			StaticDir:         "static",
@@ -82,18 +80,19 @@ func NewApp(args ...string) *App {
 			CheckXsrf:         true,
 			FormMapToStruct:   true,
 		},
-		Config:          map[string]interface{}{},
-		Actions:         map[string]interface{}{},
-		ActionsPath:     map[reflect.Type]string{},
-		ActionsNamePath: map[string]string{},
-		FuncMaps:        defaultFuncs,
-		VarMaps:         T{},
-		interceptors:    make([]Interceptor, 0),
+		Config: map[string]interface{}{},
+
+		FuncMaps:     defaultFuncs,
+		VarMaps:      T{},
+		interceptors: make([]Interceptor, 0),
 	}
 }
 
 func (a *App) Use(interceptors ...Interceptor) {
-	a.interceptors = append(a.interceptors, interceptors...)
+	for _, inter := range interceptors {
+		a.interceptors = append(a.interceptors, inter)
+		a.Map(inter)
+	}
 }
 
 func (a *App) InjectAll() {
@@ -269,10 +268,6 @@ func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
 
 	if route.hasAction {
 		c := &Action{
-			Option: &ActionOption{
-				AutoMapForm: a.AppConfig.FormMapToStruct,
-				CheckXsrf:   a.AppConfig.CheckXsrf,
-			},
 			C: vc,
 		}
 
@@ -299,54 +294,4 @@ func (a *App) error(w http.ResponseWriter, status int, content string) error {
 		status, statusText[status], content, Version)
 	_, err := w.Write([]byte(res))
 	return err
-}
-
-var (
-	sc *Action = &Action{}
-)
-
-func (app *App) Action(name string) interface{} {
-	if v, ok := app.Actions[name]; ok {
-		return v
-	}
-	return nil
-}
-
-/*
-example:
-{
-	"AdminAction":{
-		"Index":["GET","POST"],
-		"Add":	["GET","POST"],
-		"Edit":	["GET","POST"]
-	}
-}
-*/
-func (app *App) Nodes() (r map[string]map[string][]string) {
-	r = make(map[string]map[string][]string)
-	for _, val := range app.Routes {
-		name := val.HandlerElement.Name()
-		if _, ok := r[name]; !ok {
-			r[name] = make(map[string][]string)
-		}
-		if _, ok := r[name][val.HandlerMethod]; !ok {
-			r[name][val.HandlerMethod] = make([]string, 0)
-		}
-		for k, _ := range val.HttpMethods {
-			r[name][val.HandlerMethod] = append(r[name][val.HandlerMethod], k) //FUNC1:[POST,GET]
-		}
-	}
-	for _, vals := range app.RoutesEq {
-		for k, v := range vals {
-			name := v.HandlerElement.Name()
-			if _, ok := r[name]; !ok {
-				r[name] = make(map[string][]string)
-			}
-			if _, ok := r[name][v.HandlerMethod]; !ok {
-				r[name][v.HandlerMethod] = make([]string, 0)
-			}
-			r[name][v.HandlerMethod] = append(r[name][v.HandlerMethod], k) //FUNC1:[POST,GET]
-		}
-	}
-	return
 }
