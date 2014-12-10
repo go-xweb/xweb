@@ -8,7 +8,7 @@ Xweb is a powerful and extensiable web framework for Go. It's inspired by Struts
 
 ## Changelog
 
-* **v0.3** : All things changed. We have a new architecture inspired by struts and martini. Now you can write a interceptor yourself any time.
+* **v0.3** : **All THINGS CHANGED**. We have a new architecture inspired by struts and martini. Now you can write a interceptor yourself any time. But in fact, we have compitable old version of xweb.
 
 ## Features
 
@@ -27,7 +27,9 @@ To install xweb, simply run:
 
     go get github.com/go-xweb/xweb
 
-## Hello
+## Hello Xweb
+The first application of xweb is simple.
+
 ```Go
 package main
 
@@ -38,6 +40,34 @@ type Hello struct {
 
 func (Hello) Do() string {
     return "hello xweb"
+}
+
+func main() {
+    xweb.AddRouter("/", new(Hello))
+    xweb.Run(":8080")
+}
+```
+
+And if you need something, for example request, then use the below codes.
+```Go
+package main
+
+import (
+    "net/http"
+
+    "github.com/go-xweb/xweb"
+)
+
+type Hello struct {
+    req *http.Request
+}
+
+func (h *Hello) SetRequest(req *http.Request) {
+    h.req = req
+}
+
+func (h *Hello) Do() string {
+    return "hello "+h.req.URL.Path
 }
 
 func main() {
