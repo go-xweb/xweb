@@ -6,13 +6,14 @@ import (
 	"strings"
 )
 
+/*
 var (
 	sc *Action = &Action{}
-)
+)*/
 
 type Router struct {
-	Routes          []Route
-	RoutesEq        map[string]map[string]Route
+	Routes          []*Route
+	RoutesEq        map[string]map[string]*Route
 	Actions         map[string]interface{}
 	ActionsPath     map[reflect.Type]string
 	ActionsNamePath map[string]string
@@ -20,7 +21,8 @@ type Router struct {
 
 func NewRouter() *Router {
 	return &Router{
-		RoutesEq:        make(map[string]map[string]Route),
+		Routes:          make([]*Route, 0),
+		RoutesEq:        make(map[string]map[string]*Route),
 		Actions:         map[string]interface{}{},
 		ActionsPath:     map[reflect.Type]string{},
 		ActionsNamePath: map[string]string{},
@@ -34,45 +36,6 @@ func (router *Router) Action(name string) interface{} {
 	return nil
 }
 
-/*
-example:
-{
-	"AdminAction":{
-		"Index":["GET","POST"],
-		"Add":	["GET","POST"],
-		"Edit":	["GET","POST"]
-	}
-}
-*/
-func (router *Router) Nodes() (r map[string]map[string][]string) {
-	r = make(map[string]map[string][]string)
-	for _, val := range router.Routes {
-		name := val.HandlerElement.Name()
-		if _, ok := r[name]; !ok {
-			r[name] = make(map[string][]string)
-		}
-		if _, ok := r[name][val.HandlerMethod]; !ok {
-			r[name][val.HandlerMethod] = make([]string, 0)
-		}
-		for k, _ := range val.HttpMethods {
-			r[name][val.HandlerMethod] = append(r[name][val.HandlerMethod], k) //FUNC1:[POST,GET]
-		}
-	}
-	for _, vals := range router.RoutesEq {
-		for k, v := range vals {
-			name := v.HandlerElement.Name()
-			if _, ok := r[name]; !ok {
-				r[name] = make(map[string][]string)
-			}
-			if _, ok := r[name][v.HandlerMethod]; !ok {
-				r[name][v.HandlerMethod] = make([]string, 0)
-			}
-			r[name][v.HandlerMethod] = append(r[name][v.HandlerMethod], k) //FUNC1:[POST,GET]
-		}
-	}
-	return
-}
-
 type Route struct {
 	Path           string          //path string
 	CompiledRegexp *regexp.Regexp  //path regexp
@@ -80,6 +43,19 @@ type Route struct {
 	HandlerMethod  string          //struct method name
 	HandlerElement reflect.Type    //handler element
 	hasAction      bool
+}
+
+func (route *Route) newAction() reflect.Value {
+	vc := reflect.New(route.HandlerElement)
+
+	if route.hasAction {
+		c := &Action{
+			C: vc,
+		}
+
+		vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
+	}
+	return vc
 }
 
 func (app *App) AddAction(cs ...interface{}) {
@@ -106,7 +82,7 @@ func (a *App) addRoute(r string, methods map[string]bool,
 		//a.Logger.Errorf("Error in route regex %q: %s", r, err)
 		return err
 	}
-	a.Routes = append(a.Routes, Route{
+	a.Routes = append(a.Routes, &Route{
 		Path:           r,
 		CompiledRegexp: cr,
 		HttpMethods:    methods,
@@ -120,10 +96,10 @@ func (a *App) addRoute(r string, methods map[string]bool,
 func (a *App) addEqRoute(r string, methods map[string]bool,
 	t reflect.Type, handler string, hasAction bool) {
 	if _, ok := a.RoutesEq[r]; !ok {
-		a.RoutesEq[r] = make(map[string]Route)
+		a.RoutesEq[r] = make(map[string]*Route)
 	}
 	for v, _ := range methods {
-		a.RoutesEq[r][v] = Route{
+		a.RoutesEq[r][v] = &Route{
 			HandlerMethod:  handler,
 			HandlerElement: t,
 			hasAction:      hasAction,
@@ -203,50 +179,87 @@ func (app *App) AddRouter(url string, c interface{}) {
 	}
 
 	// added a default method as /
-	v := reflect.ValueOf(c).MethodByName("Execute")
+	v := reflect.ValueOf(c).MethodByName("Do")
 	if !v.IsValid() {
 		return
 	}
 	p := strings.TrimRight(url, "/") + "/"
 	methods := map[string]bool{"GET": true, "POST": true}
-	app.addEqRoute(removeStick(p), methods, t, "Execute", hasAction)
+	app.addEqRoute(removeStick(p), methods, t, "Do", hasAction)
 }
 
-func (a *App) findRoute(reqPath, allowMethod string) (Route, []reflect.Value, bool) {
-	var route Route
-	var isFind bool
+func (router *Router) Match(reqPath, allowMethod string) (*Route, []reflect.Value) {
+	var route *Route
 	var args = make([]reflect.Value, 0)
-	if routes, ok := a.RoutesEq[reqPath]; ok {
+
+	if routes, ok := router.RoutesEq[reqPath]; ok {
 		if route, ok = routes[allowMethod]; ok {
-			isFind = true
+			return route, args
 		}
 	}
 
-	if !isFind {
-		for _, route = range a.Routes {
-			cr := route.CompiledRegexp
+	for _, r := range router.Routes {
+		cr := r.CompiledRegexp
 
-			//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
-			if _, ok := route.HttpMethods[allowMethod]; !ok {
-				continue
-			}
-
-			if !cr.MatchString(reqPath) {
-				continue
-			}
-
-			match := cr.FindStringSubmatch(reqPath)
-			if len(match[0]) != len(reqPath) {
-				continue
-			}
-
-			for _, arg := range match[1:] {
-				args = append(args, reflect.ValueOf(arg))
-			}
-			isFind = true
-			break
+		//if the methods don't match, skip this handler (except HEAD can be used in place of GET)
+		if _, ok := r.HttpMethods[allowMethod]; !ok {
+			continue
 		}
+
+		if !cr.MatchString(reqPath) {
+			continue
+		}
+
+		match := cr.FindStringSubmatch(reqPath)
+		if len(match[0]) != len(reqPath) {
+			continue
+		}
+
+		for _, arg := range match[1:] {
+			args = append(args, reflect.ValueOf(arg))
+		}
+
+		return route, args
 	}
 
-	return route, args, isFind
+	return nil, nil
+}
+
+/*
+example:
+{
+	"AdminAction":{
+		"Index":["GET","POST"],
+		"Add":	["GET","POST"],
+		"Edit":	["GET","POST"]
+	}
+}
+*/
+func (router *Router) Nodes() (r map[string]map[string][]string) {
+	r = make(map[string]map[string][]string)
+	for _, val := range router.Routes {
+		name := val.HandlerElement.Name()
+		if _, ok := r[name]; !ok {
+			r[name] = make(map[string][]string)
+		}
+		if _, ok := r[name][val.HandlerMethod]; !ok {
+			r[name][val.HandlerMethod] = make([]string, 0)
+		}
+		for k, _ := range val.HttpMethods {
+			r[name][val.HandlerMethod] = append(r[name][val.HandlerMethod], k) //FUNC1:[POST,GET]
+		}
+	}
+	for _, vals := range router.RoutesEq {
+		for k, v := range vals {
+			name := v.HandlerElement.Name()
+			if _, ok := r[name]; !ok {
+				r[name] = make(map[string][]string)
+			}
+			if _, ok := r[name][v.HandlerMethod]; !ok {
+				r[name][v.HandlerMethod] = make([]string, 0)
+			}
+			r[name][v.HandlerMethod] = append(r[name][v.HandlerMethod], k) //FUNC1:[POST,GET]
+		}
+	}
+	return
 }

@@ -1,35 +1,77 @@
 package xweb
 
-import "net/http"
+import (
+	"net/http"
+	"reflect"
+)
 
 type Context struct {
-	*Injector
-
+	router       *Router
 	interceptors []Interceptor
+
 	idx          int
 	req          *http.Request
 	resp         *ResponseWriter
 	route        *Route
+	args         []reflect.Value
 	routeMatched bool
 
-	action    interface{}
-	Execute   func() interface{}
-	newAction func()
-
+	action interface{}
 	Result interface{}
 }
 
-func NewContext(injector *Injector,
+func NewContext(
+	router *Router,
 	interceptors []Interceptor,
 	req *http.Request,
 	resp *ResponseWriter) *Context {
 	return &Context{
-		Injector:     injector,
 		interceptors: interceptors,
 		idx:          -1,
 		req:          req,
 		resp:         resp,
 	}
+}
+
+func (ctx *Context) intercept() {
+	ctx.interceptors[ctx.idx].Intercept(ctx)
+}
+
+func (ctx *Context) hasNext() bool {
+	return (ctx.idx+1) >= 0 && (ctx.idx+1) < len(ctx.interceptors)
+}
+
+func (ctx *Context) next() {
+	if ctx.idx >= len(ctx.interceptors)-1 {
+		ctx.idx = -2
+		return
+	}
+	ctx.idx += 1
+}
+
+func (ctx *Context) newAction() {
+	if !ctx.routeMatched {
+		reqPath := removeStick(ctx.Req().URL.Path)
+		allowMethod := Ternary(ctx.Req().Method == "HEAD", "GET", ctx.Req().Method).(string)
+
+		route, args := ctx.router.Match(reqPath, allowMethod)
+		if route != nil {
+			ctx.route = route
+			ctx.action = route.newAction().Interface()
+			ctx.args = args
+		}
+		ctx.routeMatched = true
+	}
+}
+
+func (ctx *Context) Route() *Route {
+	ctx.newAction()
+	return ctx.route
+}
+
+func (ctx *Context) Action() interface{} {
+	ctx.newAction()
+	return ctx.action
 }
 
 func (ctx *Context) Req() *http.Request {
@@ -42,22 +84,6 @@ func (ctx *Context) Resp() *ResponseWriter {
 
 func (ctx *Context) ServeFile(path string) error {
 	return ctx.resp.ServeFile(ctx.req, path)
-}
-
-func (ctx *Context) Interceptor() Interceptor {
-	return ctx.interceptors[ctx.idx]
-}
-
-func (ctx *Context) HasNext() bool {
-	return (ctx.idx+1) >= 0 && (ctx.idx+1) < len(ctx.interceptors)
-}
-
-func (ctx *Context) next() {
-	if ctx.idx >= len(ctx.interceptors)-1 {
-		ctx.idx = -2
-		return
-	}
-	ctx.idx += 1
 }
 
 func (ctx *Context) HandleResult(result interface{}) bool {
@@ -90,24 +116,26 @@ func (ctx *Context) HandleResult(result interface{}) bool {
 }
 
 func (ctx *Context) Invoke() {
-	if ctx.HasNext() {
+	if ctx.hasNext() {
 		ctx.next()
-		ctx.Interceptor().Intercept(ctx)
+		ctx.intercept()
 	} else {
-		ctx.Result = ctx.Execute()
+		ctx.Result = ctx.Do()
 	}
 }
 
-func (ctx *Context) Action() interface{} {
-	if ctx.action == nil && ctx.newAction != nil {
-		ctx.newAction()
+func (ctx *Context) Do() interface{} {
+	ctx.newAction()
+	if ctx.action == nil {
+		return nil
 	}
-	return ctx.action
-}
 
-func (ctx *Context) getRoute() *Route {
-	if ctx.action == nil && ctx.newAction != nil {
-		ctx.newAction()
+	var vc = reflect.ValueOf(ctx.action)
+	function := vc.MethodByName(ctx.route.HandlerMethod)
+	ret := function.Call(ctx.args)
+
+	if len(ret) > 0 {
+		return ret[0].Interface()
 	}
-	return ctx.route
+	return nil
 }

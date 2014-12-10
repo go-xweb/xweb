@@ -12,7 +12,7 @@ type BeforeInterceptor struct {
 func (itor *BeforeInterceptor) Intercept(ctx *Context) {
 	if action := ctx.Action(); action != nil {
 		if before, ok := action.(BeforeInterface); ok {
-			route := ctx.getRoute()
+			route := ctx.Route()
 			if !before.Before(route.HandlerElement.Name(),
 				route.HandlerMethod) {
 				return
@@ -38,7 +38,7 @@ func (itor *AfterInterceptor) Intercept(ctx *Context) {
 	}
 
 	if after, ok := action.(AfterInterface); ok {
-		route := ctx.getRoute()
+		route := ctx.Route()
 		if !after.After(
 			route.HandlerElement.Name(),
 			route.HandlerMethod,

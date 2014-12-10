@@ -2,7 +2,6 @@ package xweb
 
 import (
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
@@ -164,67 +163,16 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	ctx := NewContext(
-		a.Injector,
+		a.Router,
 		a.interceptors,
 		req,
 		NewResponseWriter(w),
 	)
 
-	ctx.newAction = func() {
-		reqPath := removeStick(req.URL.Path)
-		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
-
-		route, _, isFind := a.findRoute(reqPath, allowMethod)
-		if isFind {
-			ctx.route = &route
-			ctx.action = a.newAction(ctx, route).Interface()
-		}
-	}
-
-	ctx.Execute = func() interface{} {
-		reqPath := removeStick(req.URL.Path)
-		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
-
-		route, args, isFind := a.findRoute(reqPath, allowMethod)
-		if !isFind {
-			return nil
-		}
-
-		var vc reflect.Value
-		if ctx.action == nil {
-			vc = a.newAction(ctx, route)
-			ctx.action = vc.Interface()
-		} else {
-			vc = reflect.ValueOf(ctx.action)
-		}
-
-		function := vc.MethodByName(route.HandlerMethod)
-		ret := function.Call(args)
-
-		if len(ret) > 0 {
-			return ret[0].Interface()
-		}
-		return nil
-	}
-
 	ctx.Invoke()
 
 	// flush the buffer
 	ctx.Resp().Flush()
-}
-
-func (a *App) newAction(ctx *Context, route Route) reflect.Value {
-	vc := reflect.New(route.HandlerElement)
-
-	if route.hasAction {
-		c := &Action{
-			C: vc,
-		}
-
-		vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
-	}
-
-	return vc
 }
 
 type AppInterface interface {
