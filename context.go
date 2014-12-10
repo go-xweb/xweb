@@ -26,6 +26,7 @@ func NewContext(
 	req *http.Request,
 	resp *ResponseWriter) *Context {
 	return &Context{
+		router:       router,
 		interceptors: interceptors,
 		idx:          -1,
 		req:          req,
