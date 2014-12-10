@@ -122,9 +122,10 @@ func (s *Server) GetConfig(name string) interface{} {
 	return s.RootApp.GetConfig(name)
 }
 
+/*
 func (s *Server) error(w http.ResponseWriter, status int, content string) error {
 	return s.RootApp.error(w, status, content)
-}
+}*/
 
 func (s *Server) initServer() {
 	if s.Config == nil {

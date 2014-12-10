@@ -265,7 +265,9 @@ func (c *Action) Write(content string, values ...interface{}) error {
 // Once it has been called, any return value from the handler will
 // not be written to the response.
 func (c *Action) Abort(status int, body string) error {
-	return c.App.error(c.ResponseWriter, status, body)
+	c.ResponseWriter.WriteHeader(status)
+	c.ResponseWriter.Write([]byte(body))
+	return nil
 }
 
 // NotFound writes a 404 HTTP response
