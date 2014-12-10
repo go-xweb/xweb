@@ -76,6 +76,30 @@ func main() {
 }
 ```
 
+Use your custom plugin.
+```Go
+type HelloInterceptor struct {
+}
+
+func (HelloInterceptor) Intercept(ctx *Context) {
+    ctx.Invoke()
+
+    if s, ok := ctx.Result.(string); ok {
+        if strings.HasPrefix(s, "hello") {
+            ctx.Result = "xweb "+ s
+        }
+    }
+}
+
+func main() {
+    xweb.Use(new(HelloInterceptor))
+    xweb.AddRouter("/", new(Hello))
+    xweb.Run(":8080")
+}
+```
+
+Then we will find the browser show `xweb hello /`
+
 ## Examples
 
 Please visit [examples](https://github.com/go-xweb/xweb/tree/master/examples) folder
