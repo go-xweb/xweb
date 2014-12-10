@@ -34,7 +34,7 @@ func (a *InjectAction) SetResponse(response *xweb.ResponseWriter) {
 	fmt.Println("statuscode:", response.StatusCode)
 }
 
-func (a *InjectAction) Execute() string {
+func (a *InjectAction) Do() string {
 	return a.callthis
 }
 

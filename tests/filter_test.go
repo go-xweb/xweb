@@ -5,7 +5,7 @@ import "testing"
 type FilterAction struct {
 }
 
-func (a *FilterAction) Execute() string {
+func (a *FilterAction) Do() string {
 	return ""
 }
 

@@ -13,7 +13,7 @@ import (
 type PanicAction struct {
 }
 
-func (a *PanicAction) Execute() {
+func (a *PanicAction) Do() {
 	panic("tttttt")
 }
 

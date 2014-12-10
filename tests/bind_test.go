@@ -16,7 +16,7 @@ type BindAction struct {
 	Name string
 }
 
-func (a *BindAction) Execute() string {
+func (a *BindAction) Do() string {
 	return fmt.Sprintf("%d-%s", a.Id, a.Name)
 }
 

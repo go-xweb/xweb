@@ -17,7 +17,7 @@ func (a *RenderAction) SetRenderer(renderer *xweb.Renderer) {
 	a.Renderer = renderer
 }
 
-func (a *RenderAction) Execute() error {
+func (a *RenderAction) Do() error {
 	return a.RenderString("hello {{.T.hello}}", &xweb.T{
 		"hello": "world",
 	})

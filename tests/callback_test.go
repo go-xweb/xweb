@@ -14,14 +14,14 @@ type TestAction struct {
 	*xweb.Action
 }
 
-func (a *TestAction) Execute() string {
+func (a *TestAction) Do() string {
 	return "sssss"
 }
 
 var outputsEq = []string{
 	"------> init",
-	"------> before TestAction Execute",
-	"------> after TestAction Execute",
+	"------> before TestAction Do",
+	"------> after TestAction Do",
 }
 
 var outputs = make([]string, 0)

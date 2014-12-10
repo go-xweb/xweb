@@ -13,7 +13,7 @@ type SessionAction struct {
 	*xweb.Action
 }
 
-func (a *SessionAction) Execute() string {
+func (a *SessionAction) Do() string {
 	a.SetSession("test", "1")
 	fmt.Printf("this---->%q\n", *a)
 	fmt.Println("test--->", a.GetSession("test"))
