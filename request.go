@@ -9,11 +9,12 @@ type RequestInterface interface {
 type RequestInterceptor struct {
 }
 
-func (ii *RequestInterceptor) Intercept(ia *Invocation) {
-	action := ia.ActionContext().Action()
-	if s, ok := action.(RequestInterface); ok {
-		s.SetRequest(ia.Req())
+func (ii *RequestInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
+		if s, ok := action.(RequestInterface); ok {
+			s.SetRequest(ctx.Req())
+		}
 	}
 
-	ia.Invoke()
+	ctx.Invoke()
 }

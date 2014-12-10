@@ -83,7 +83,7 @@ var errorTmpl string = ""
 type ErrorHandler struct {
 }
 
-func (ErrorHandler) Intercept(ia *Invocation) {
+func (ErrorHandler) Intercept(ctx *Context) {
 
 }
 

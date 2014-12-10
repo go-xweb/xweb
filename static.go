@@ -236,8 +236,8 @@ func NewStaticVerInterceptor(logger Logger, staticDir string, app *App) *StaticV
 	}
 }
 
-func (itor *StaticVerInterceptor) Intercept(ia *Invocation) {
-	ia.Invoke()
+func (itor *StaticVerInterceptor) Intercept(ctx *Context) {
+	ctx.Invoke()
 }
 
 type StaticInterceptor struct {
@@ -245,38 +245,38 @@ type StaticInterceptor struct {
 	IndexFiles []string
 }
 
-func (itor *StaticInterceptor) serveFile(ai *Invocation, path string) bool {
+func (itor *StaticInterceptor) serveFile(ctx *Context, path string) bool {
 	fPath := filepath.Join(itor.RootPath, path)
 	finfo, err := os.Stat(fPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			ai.HandleResult(err)
+			ctx.HandleResult(err)
 			return true
 		}
 	} else if !finfo.IsDir() {
-		err := ai.ServeFile(fPath)
+		err := ctx.ServeFile(fPath)
 		if err != nil {
-			ai.HandleResult(err)
+			ctx.HandleResult(err)
 		}
 		return true
 	}
 	return false
 }
 
-func (itor *StaticInterceptor) Intercept(ai *Invocation) {
-	if ai.Req().Method == "GET" || ai.Req().Method == "HEAD" {
-		if itor.serveFile(ai, ai.Req().URL.Path) {
+func (itor *StaticInterceptor) Intercept(ctx *Context) {
+	if ctx.Req().Method == "GET" || ctx.Req().Method == "HEAD" {
+		if itor.serveFile(ctx, ctx.Req().URL.Path) {
 			return
 		}
 	}
 
-	ai.Invoke()
+	ctx.Invoke()
 
 	// try serving index.html or index.htm
-	if !ai.Resp().Written() && (ai.Req().Method == "GET" || ai.Req().Method == "HEAD") {
+	if !ctx.Resp().Written() && (ctx.Req().Method == "GET" || ctx.Req().Method == "HEAD") {
 		if len(itor.IndexFiles) > 0 {
 			for _, index := range itor.IndexFiles {
-				if itor.serveFile(ai, path.Join(ai.Req().URL.Path, index)) {
+				if itor.serveFile(ctx, path.Join(ctx.Req().URL.Path, index)) {
 					return
 				}
 			}

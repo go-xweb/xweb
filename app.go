@@ -114,13 +114,12 @@ func (a *App) initApp() {
 		a.AppConfig.TemplateDir,
 		a.AppConfig.ReloadTemplates,
 		a.AppConfig.CacheTemplates,
-		a,
 	)
 	a.Render = render
 	a.Use(render)
 
 	if a.AppConfig.CheckXsrf {
-		a.Use(NewXsrfInterceptor(a))
+		a.Use(NewXsrfInterceptor())
 	}
 
 	if a.AppConfig.SessionOn {
@@ -164,27 +163,25 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 	//Set the default content-type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	var ac = ActionContext{}
-	ia := NewInvocation(
+	ctx := NewContext(
 		a.Injector,
 		a.interceptors,
 		req,
 		NewResponseWriter(w),
-		&ac,
 	)
 
-	ac.newAction = func() {
+	ctx.newAction = func() {
 		reqPath := removeStick(req.URL.Path)
 		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
 
 		route, _, isFind := a.findRoute(reqPath, allowMethod)
 		if isFind {
-			ac.route = &route
-			ac.action = a.newAction(ia, route).Interface()
+			ctx.route = &route
+			ctx.action = a.newAction(ctx, route).Interface()
 		}
 	}
 
-	ac.Execute = func() interface{} {
+	ctx.Execute = func() interface{} {
 		reqPath := removeStick(req.URL.Path)
 		allowMethod := Ternary(req.Method == "HEAD", "GET", req.Method).(string)
 
@@ -194,11 +191,11 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		}
 
 		var vc reflect.Value
-		if ia.action.action == nil {
-			vc = a.newAction(ia, route)
-			ia.action.action = vc.Interface()
+		if ctx.action == nil {
+			vc = a.newAction(ctx, route)
+			ctx.action = vc.Interface()
 		} else {
-			vc = reflect.ValueOf(ia.action.action)
+			vc = reflect.ValueOf(ctx.action)
 		}
 
 		function := vc.MethodByName(route.HandlerMethod)
@@ -210,13 +207,13 @@ func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
 		return nil
 	}
 
-	ia.Invoke()
+	ctx.Invoke()
 
 	// flush the buffer
-	ia.Resp().Flush()
+	ctx.Resp().Flush()
 }
 
-func (a *App) newAction(ia *Invocation, route Route) reflect.Value {
+func (a *App) newAction(ctx *Context, route Route) reflect.Value {
 	vc := reflect.New(route.HandlerElement)
 
 	if route.hasAction {
@@ -238,12 +235,12 @@ type AppInterceptor struct {
 	app *App
 }
 
-func (inter *AppInterceptor) Intercept(ia *Invocation) {
-	action := ia.ActionContext().Action()
+func (inter *AppInterceptor) Intercept(ctx *Context) {
+	action := ctx.Action()
 	if action != nil {
 		if apper, ok := action.(AppInterface); ok {
 			apper.SetApp(inter.app)
 		}
 	}
-	ia.Invoke()
+	ctx.Invoke()
 }

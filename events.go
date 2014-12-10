@@ -9,20 +9,17 @@ type BeforeInterface interface {
 type BeforeInterceptor struct {
 }
 
-func (itor *BeforeInterceptor) Intercept(ai *Invocation) {
-	action := ai.ActionContext().Action()
-	if action == nil {
-		return
-	}
-
-	if before, ok := action.(BeforeInterface); ok {
-		route := ai.ActionContext().getRoute()
-		if !before.Before(route.HandlerElement.Name(),
-			route.HandlerMethod) {
-			return
+func (itor *BeforeInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
+		if before, ok := action.(BeforeInterface); ok {
+			route := ctx.getRoute()
+			if !before.Before(route.HandlerElement.Name(),
+				route.HandlerMethod) {
+				return
+			}
 		}
 	}
-	ai.Invoke()
+	ctx.Invoke()
 }
 
 type AfterInterface interface {
@@ -32,21 +29,21 @@ type AfterInterface interface {
 type AfterInterceptor struct {
 }
 
-func (itor *AfterInterceptor) Intercept(ai *Invocation) {
-	ai.Invoke()
+func (itor *AfterInterceptor) Intercept(ctx *Context) {
+	ctx.Invoke()
 
-	action := ai.ActionContext().Action()
+	action := ctx.Action()
 	if action == nil {
 		return
 	}
 
 	if after, ok := action.(AfterInterface); ok {
-		route := ai.ActionContext().getRoute()
+		route := ctx.getRoute()
 		if !after.After(
 			route.HandlerElement.Name(),
 			route.HandlerMethod,
-			ai.Result) {
-			fmt.Println("since we return false, but I cannot stop the other interceptors")
+			ctx.Result) {
+			fmt.Println("we current cannot disallow invoke to next interceptors")
 		}
 	}
 }
@@ -58,9 +55,11 @@ type InitInterface interface {
 type InitInterceptor struct {
 }
 
-func (itor *InitInterceptor) Intercept(ai *Invocation) {
-	if init, ok := ai.ActionContext().Action().(InitInterface); ok {
-		init.Init()
+func (itor *InitInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
+		if init, ok := action.(InitInterface); ok {
+			init.Init()
+		}
 	}
-	ai.Invoke()
+	ctx.Invoke()
 }

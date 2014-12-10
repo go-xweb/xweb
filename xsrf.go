@@ -23,34 +23,36 @@ type XsrfOptionInterface interface {
 type XsrfInterceptor struct {
 }
 
-func NewXsrfInterceptor(app *App) *XsrfInterceptor {
-	app.FuncMaps["XsrfName"] = XsrfName
+func NewXsrfInterceptor() *XsrfInterceptor {
 	return &XsrfInterceptor{}
 }
 
-func (inter *XsrfInterceptor) Intercept(ia *Invocation) {
-	action := ia.ActionContext().Action()
-	if action != nil && ia.Req().Method == "POST" {
+func (xsrf *XsrfInterceptor) SetRender(render *Render) {
+	render.FuncMaps["XsrfName"] = XsrfName
+}
+
+func (inter *XsrfInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil && ctx.Req().Method == "POST" {
 		// if action implements check xsrf option and ask not check then return
 		if checker, ok := action.(XsrfOptionInterface); ok && !checker.CheckXsrf() {
-			ia.Invoke()
+			ctx.Invoke()
 			return
 		}
 
-		res, err := ia.Req().Cookie(XSRF_TAG)
-		formVals := ia.Req().Form[XSRF_TAG]
+		res, err := ctx.Req().Cookie(XSRF_TAG)
+		formVals := ctx.Req().Form[XSRF_TAG]
 		var formVal string
 		if len(formVals) > 0 {
 			formVal = formVals[0]
 		}
 		if err != nil || res.Value == "" || res.Value != formVal {
-			ia.Resp().WriteHeader(http.StatusInternalServerError)
-			ia.Resp().Write([]byte("xsrf token error."))
+			ctx.Resp().WriteHeader(http.StatusInternalServerError)
+			ctx.Resp().Write([]byte("xsrf token error."))
 			return
 		}
 	}
 
-	ia.Invoke()
+	ctx.Invoke()
 }
 
 func (c *Action) XsrfValue() string {

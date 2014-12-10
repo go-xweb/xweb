@@ -20,7 +20,7 @@ func NewPanicInterceptor(recoverPanic, isDebug bool) *PanicInterceptor {
 	return &PanicInterceptor{debug: isDebug}
 }
 
-func (itor *PanicInterceptor) Intercept(ia *Invocation) {
+func (itor *PanicInterceptor) Intercept(ctx *Context) {
 	defer func() {
 		if e := recover(); e != nil {
 			if !itor.recoverPanic {
@@ -41,14 +41,14 @@ func (itor *PanicInterceptor) Intercept(ia *Invocation) {
 
 				itor.logger.Error(content)
 
-				ia.Resp().WriteHeader(http.StatusInternalServerError)
+				ctx.Resp().WriteHeader(http.StatusInternalServerError)
 				if !itor.debug {
 					content = statusText[http.StatusInternalServerError]
 				}
-				ia.Resp().Write([]byte(content))
+				ctx.Resp().Write([]byte(content))
 			}
 		}
 	}()
 
-	ia.Invoke()
+	ctx.Invoke()
 }

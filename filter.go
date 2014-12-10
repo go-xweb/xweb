@@ -20,14 +20,14 @@ type FilterInterceptor struct {
 	filter Filter
 }
 
-func (itor *FilterInterceptor) Intercept(ia *Invocation) {
+func (itor *FilterInterceptor) Intercept(ctx *Context) {
 	if itor.filter != nil {
-		if !itor.filter.Do(ia.Resp(), ia.Req()) {
+		if !itor.filter.Do(ctx.Resp(), ctx.Req()) {
 			return
 		}
 	}
 
-	ia.Invoke()
+	ctx.Invoke()
 }
 
 // for compitable

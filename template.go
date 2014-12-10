@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	"github.com/howeyc/fsnotify"
 )
 
@@ -338,12 +339,11 @@ func (self *TemplateMgr) CacheAll(rootDir string) error {
 	return err
 }
 
-func (self *TemplateMgr) Init(app *App, rootDir string, reload bool) error {
+func (self *TemplateMgr) Init(rootDir string, reload bool) error {
 	self.RootDir = rootDir
 	self.Caches = make(map[string][]byte)
 	self.Ignores = make(map[string]bool)
 	self.mutex = &sync.Mutex{}
-	self.app = app
 	if dirExists(rootDir) {
 		self.CacheAll(rootDir)
 

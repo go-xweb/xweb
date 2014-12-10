@@ -17,16 +17,16 @@ func NewCompressInterceptor(staticExts []string) *GZipInterceptor {
 	}
 }
 
-func (inter *GZipInterceptor) Intercept(ia *Invocation) {
-	ia.Invoke()
+func (inter *GZipInterceptor) Intercept(ctx *Context) {
+	ctx.Invoke()
 
 	// for cache server
-	ia.Resp().Header().Add("Vary", "Accept-Encoding")
+	ctx.Resp().Header().Add("Vary", "Accept-Encoding")
 
 	isStaticFileToCompress := false
 	if inter.staticExts != nil && len(inter.staticExts) > 0 {
 		for _, ext := range inter.staticExts {
-			if strings.HasSuffix(strings.ToLower(ia.Req().URL.Path), strings.ToLower(ext)) {
+			if strings.HasSuffix(strings.ToLower(ctx.Req().URL.Path), strings.ToLower(ext)) {
 				isStaticFileToCompress = true
 				break
 			}
@@ -37,7 +37,7 @@ func (inter *GZipInterceptor) Intercept(ia *Invocation) {
 		return
 	}
 
-	ae := ia.Req().Header.Get("Accept-Encoding")
+	ae := ctx.Req().Header.Get("Accept-Encoding")
 	if ae == "" {
 		return
 	}
@@ -50,12 +50,12 @@ func (inter *GZipInterceptor) Intercept(ia *Invocation) {
 	var writer io.Writer
 	for _, val := range encodings {
 		if val == "gzip" {
-			ia.Resp().Header().Set("Content-Encoding", "gzip")
-			writer, _ = gzip.NewWriterLevel(ia.Resp(), gzip.BestSpeed)
+			ctx.Resp().Header().Set("Content-Encoding", "gzip")
+			writer, _ = gzip.NewWriterLevel(ctx.Resp(), gzip.BestSpeed)
 			break
 		} else if val == "deflate" {
-			ia.Resp().Header().Set("Content-Encoding", "deflate")
-			writer, _ = flate.NewWriter(ia.Resp(), flate.BestSpeed)
+			ctx.Resp().Header().Set("Content-Encoding", "deflate")
+			writer, _ = flate.NewWriter(ctx.Resp(), flate.BestSpeed)
 			break
 		}
 	}
@@ -64,8 +64,8 @@ func (inter *GZipInterceptor) Intercept(ia *Invocation) {
 		return
 	}
 
-	var buffer = ia.Resp().buffer
-	ia.Resp().buffer = make([]byte, 0)
+	var buffer = ctx.Resp().buffer
+	ctx.Resp().buffer = make([]byte, 0)
 	writer.Write(buffer)
 	switch writer.(type) {
 	case *gzip.Writer:

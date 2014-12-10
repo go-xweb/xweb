@@ -33,20 +33,19 @@ func (itor *BindInterceptor) SetLogger(logger Logger) {
 	itor.logger = logger
 }
 
-func (inter *BindInterceptor) Intercept(ai *Invocation) {
-	action := ai.ActionContext().Action()
-	if action != nil {
+func (inter *BindInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
 		// if action ask don't automap then continue
 		if checker, ok := action.(BindOptionInterface); ok && !checker.AutoMapForm() {
-			ai.Invoke()
+			ctx.Invoke()
 			return
 		}
 
 		vc := reflect.ValueOf(action)
-		namedStructMap(inter.logger, vc.Elem(), ai.req, "")
+		namedStructMap(inter.logger, vc.Elem(), ctx.Req(), "")
 	}
 
-	ai.Invoke()
+	ctx.Invoke()
 }
 
 // user[name][test]

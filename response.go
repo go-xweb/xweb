@@ -155,11 +155,12 @@ type ResponseInterface interface {
 type ResponseInterceptor struct {
 }
 
-func (ii *ResponseInterceptor) Intercept(ia *Invocation) {
-	action := ia.ActionContext().Action()
-	if s, ok := action.(ResponseInterface); ok {
-		s.SetResponse(ia.Resp())
+func (ii *ResponseInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
+		if s, ok := action.(ResponseInterface); ok {
+			s.SetResponse(ctx.Resp())
+		}
 	}
 
-	ia.Invoke()
+	ctx.Invoke()
 }

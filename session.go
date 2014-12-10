@@ -28,12 +28,13 @@ func NewSessionInterceptor(app *App) *SessionInterceptor {
 	return &SessionInterceptor{sessionMgr: app.SessionManager}
 }
 
-func (itor *SessionInterceptor) Intercept(ia *Invocation) {
-	action := ia.ActionContext().Action()
-	if s, ok := action.(SessionInterface); ok {
-		session := itor.sessionMgr.Session(ia.Req(), ia.Resp())
-		s.SetSessions(session)
+func (itor *SessionInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); ctx != nil {
+		if s, ok := action.(SessionInterface); ok {
+			session := itor.sessionMgr.Session(ctx.Req(), ctx.Resp())
+			s.SetSessions(session)
+		}
 	}
 
-	ia.Invoke()
+	ctx.Invoke()
 }

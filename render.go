@@ -211,7 +211,7 @@ func (itor *Render) SetLogger(logger Logger) {
 }
 
 func NewRender(templateDir string,
-	reloadTemplates, cacheTemplates bool, app *App) *Render {
+	reloadTemplates, cacheTemplates bool) *Render {
 	itor := &Render{
 		templateDir: templateDir,
 		templateMgr: new(TemplateMgr),
@@ -219,25 +219,21 @@ func NewRender(templateDir string,
 		VarMaps:     T{},
 	}
 
-	itor.templateMgr.Init(app,
+	itor.templateMgr.Init(
 		templateDir,
 		reloadTemplates,
 	)
-
-	itor.FuncMaps = app.FuncMaps
-	itor.VarMaps = app.VarMaps
 
 	itor.VarMaps["XwebVer"] = Version
 
 	return itor
 }
 
-func (itor *Render) Intercept(ia *Invocation) {
-	action := ia.ActionContext().Action()
-	if action != nil {
+func (itor *Render) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
 		if rd, ok := action.(RendererInterface); ok {
 			renderer := NewRenderer(
-				ia.Resp(),
+				ctx.Resp(),
 				itor.logger,
 				itor.templateMgr,
 				itor.FuncMaps,
@@ -249,5 +245,5 @@ func (itor *Render) Intercept(ia *Invocation) {
 		}
 	}
 
-	ia.Invoke()
+	ctx.Invoke()
 }

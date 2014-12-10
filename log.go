@@ -29,24 +29,23 @@ func NewLogInterceptor(logger Logger) *LogInterceptor {
 	}
 }
 
-func (itor *LogInterceptor) Intercept(ai *Invocation) {
-	action := ai.ActionContext().Action()
-	if action != nil {
+func (itor *LogInterceptor) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
 		if l, ok := action.(LogInterface); ok {
 			l.SetLogger(itor.logger)
 		}
 	}
 
-	ai.Invoke()
+	ctx.Invoke()
 
-	if ai.Resp().Written() {
-		statusCode := ai.Resp().StatusCode
-		requestPath := ai.Req().URL.Path
+	if ctx.Resp().Written() {
+		statusCode := ctx.Resp().StatusCode
+		requestPath := ctx.Req().URL.Path
 
 		if statusCode >= 200 && statusCode < 400 {
-			itor.logger.Info(ai.Req().Method, statusCode, requestPath)
+			itor.logger.Info(ctx.Req().Method, statusCode, requestPath)
 		} else {
-			itor.logger.Error(ai.Req().Method, statusCode, requestPath)
+			itor.logger.Error(ctx.Req().Method, statusCode, requestPath)
 		}
 	}
 }
