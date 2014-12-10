@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -86,7 +87,7 @@ func (a *App) initApp() {
 
 	a.Use(
 		&ReturnInterceptor{},
-		&StaticInterceptor{
+		&Static{
 			RootPath: a.AppConfig.StaticDir,
 			IndexFiles: []string{
 				"index.html",
@@ -106,10 +107,15 @@ func (a *App) initApp() {
 	}
 
 	if a.AppConfig.StaticFileVersion {
-		a.Use(NewStaticVerInterceptor(logger, a.AppConfig.StaticDir, a))
+		a.Use(NewStaticVersions(
+			logger,
+			a.AppConfig.StaticDir,
+			a.basePath))
 	} else {
 		// even if don't use static file version, is still
-		a.FuncMaps["StaticUrl"] = a.StaticUrlNoVer
+		a.FuncMaps["StaticUrl"] = func(url string) string {
+			return path.Join(a.basePath, url)
+		}
 	}
 
 	render := NewRender(

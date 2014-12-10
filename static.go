@@ -12,15 +12,7 @@ import (
 	"github.com/howeyc/fsnotify"
 )
 
-type StaticVerMgr struct {
-	Caches  map[string]string
-	mutex   *sync.Mutex
-	Path    string
-	Ignores map[string]bool
-	logger  Logger
-}
-
-func (self *StaticVerMgr) Moniter(staticPath string) error {
+func (self *StaticVersions) Moniter(staticPath string) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -34,7 +26,7 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 				if ev == nil {
 					break
 				}
-				if _, ok := self.Ignores[filepath.Base(ev.Name)]; ok {
+				if _, ok := self.ignores[filepath.Base(ev.Name)]; ok {
 					break
 				}
 				d, err := os.Stat(ev.Name)
@@ -46,14 +38,14 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 					if d.IsDir() {
 						watcher.Watch(ev.Name)
 					} else {
-						url := ev.Name[len(self.Path)+1:]
+						url := ev.Name[len(self.staticDir)+1:]
 						self.CacheItem(url)
 					}
 				} else if ev.IsDelete() {
 					if d.IsDir() {
 						watcher.RemoveWatch(ev.Name)
 					} else {
-						pa := ev.Name[len(self.Path)+1:]
+						pa := ev.Name[len(self.staticDir)+1:]
 						self.CacheDelete(pa)
 					}
 				} else if ev.IsModify() {
@@ -94,23 +86,18 @@ func (self *StaticVerMgr) Moniter(staticPath string) error {
 	return nil
 }
 
-func (self *StaticVerMgr) Init(staticPath string) error {
-	self.Path = staticPath
-	self.Caches = make(map[string]string)
-	self.mutex = &sync.Mutex{}
-	self.Ignores = map[string]bool{".DS_Store": true}
+func (self *StaticVersions) Run() {
+	if dirExists(self.staticDir) {
+		self.CacheAll(self.staticDir)
 
-	if dirExists(staticPath) {
-		self.CacheAll(staticPath)
-
-		go self.Moniter(staticPath)
+		go self.Moniter(self.staticDir)
+	} else {
+		self.logger.Warn("static dir", self.staticDir, "is not exist")
 	}
-
-	return nil
 }
 
-func (self *StaticVerMgr) getFileVer(url string) string {
-	fPath := filepath.Join(self.Path, url)
+func (self *StaticVersions) getFileVer(url string) string {
+	fPath := filepath.Join(self.staticDir, url)
 	self.logger.Debug("loaded static ", fPath)
 	f, err := os.Open(fPath)
 	if err != nil {
@@ -139,7 +126,7 @@ func (self *StaticVerMgr) getFileVer(url string) string {
 	return ""
 }
 
-func (self *StaticVerMgr) CacheAll(staticPath string) error {
+func (self *StaticVersions) CacheAll(staticPath string) error {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
@@ -148,104 +135,90 @@ func (self *StaticVerMgr) CacheAll(staticPath string) error {
 			return nil
 		}
 		rp := f[len(staticPath)+1:]
-		if _, ok := self.Ignores[filepath.Base(rp)]; !ok {
-			self.Caches[rp] = self.getFileVer(rp)
+		if _, ok := self.ignores[filepath.Base(rp)]; !ok {
+			self.caches[rp] = self.getFileVer(rp)
 		}
 		return nil
 	})
 	return err
 }
 
-func (self *StaticVerMgr) GetVersion(url string) string {
+func (self *StaticVersions) GetVersion(url string) string {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
-	if ver, ok := self.Caches[url]; ok {
+	if ver, ok := self.caches[url]; ok {
 		return ver
 	}
 
 	ver := self.getFileVer(url)
 	if ver != "" {
-		self.Caches[url] = ver
+		self.caches[url] = ver
 	}
 	return ver
 }
 
-func (self *StaticVerMgr) CacheDelete(url string) {
+func (self *StaticVersions) CacheDelete(url string) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
-	delete(self.Caches, url)
+	delete(self.caches, url)
 	self.logger.Infof("static file %s is deleted.\n", url)
 }
 
-func (self *StaticVerMgr) CacheItem(url string) {
+func (self *StaticVersions) CacheItem(url string) {
 	ver := self.getFileVer(url)
 	if ver != "" {
 		self.mutex.Lock()
 		defer self.mutex.Unlock()
-		self.Caches[url] = ver
+		self.caches[url] = ver
 		self.logger.Infof("static file %s is created.", url)
 	}
 }
 
-func (a *App) StaticUrlNoVer(url string) string {
-	var basePath string
-	if a.AppConfig.StaticDir == RootApp().AppConfig.StaticDir {
-		basePath = RootApp().BasePath
-	} else {
-		basePath = a.BasePath
-	}
-
-	return path.Join(basePath, url)
-}
-
-func (a *App) StaticUrl(url string, getver func(string) string) string {
-	var basePath string
-	if a.AppConfig.StaticDir == RootApp().AppConfig.StaticDir {
-		basePath = RootApp().BasePath
-	} else {
-		basePath = a.BasePath
-	}
-
-	ver := getver(url)
+func (inter *StaticVersions) staticUrl(url string) string {
+	ver := inter.GetVersion(url)
 	if ver == "" {
-		return path.Join(basePath, url)
+		return path.Join(inter.basePath, url)
 	}
-	return path.Join(basePath, url+"?v="+ver)
+	return path.Join(inter.basePath, url+"?v="+ver)
 }
 
-type StaticVerInterceptor struct {
-	staticMgr *StaticVerMgr
-	app       *App
+type StaticVersions struct {
+	basePath  string
+	staticDir string
+	caches    map[string]string
+	mutex     sync.Mutex
+	ignores   map[string]bool
+	logger    Logger
 }
 
-func (inter *StaticVerInterceptor) SetRender(render *Render) {
+func (inter *StaticVersions) SetRender(render *Render) {
 	render.FuncMaps["StaticUrl"] = func(url string) string {
-		return inter.app.StaticUrl(url, inter.staticMgr.GetVersion)
+		return inter.staticUrl(url)
 	}
 }
 
-func NewStaticVerInterceptor(logger Logger, staticDir string, app *App) *StaticVerInterceptor {
-	staticMgr := &StaticVerMgr{
-		logger: logger,
+func NewStaticVersions(logger Logger, staticDir, basePath string) *StaticVersions {
+	staticver := &StaticVersions{
+		logger:    logger,
+		staticDir: staticDir,
+		basePath:  basePath,
+		caches:    make(map[string]string),
+		ignores:   map[string]bool{".DS_Store": true},
 	}
-	staticMgr.Init(staticDir)
-
-	return &StaticVerInterceptor{
-		staticMgr: staticMgr,
-		app:       app,
-	}
+	staticver.Run()
+	return staticver
 }
 
-func (itor *StaticVerInterceptor) Intercept(ctx *Context) {
+func (itor *StaticVersions) Intercept(ctx *Context) {
 	ctx.Invoke()
 }
 
-type StaticInterceptor struct {
+type Static struct {
 	RootPath   string
 	IndexFiles []string
 }
 
-func (itor *StaticInterceptor) serveFile(ctx *Context, path string) bool {
+func (itor *Static) serveFile(ctx *Context, path string) bool {
 	fPath := filepath.Join(itor.RootPath, path)
 	finfo, err := os.Stat(fPath)
 	if err != nil {
@@ -263,7 +236,7 @@ func (itor *StaticInterceptor) serveFile(ctx *Context, path string) bool {
 	return false
 }
 
-func (itor *StaticInterceptor) Intercept(ctx *Context) {
+func (itor *Static) Intercept(ctx *Context) {
 	if ctx.Req().Method == "GET" || ctx.Req().Method == "HEAD" {
 		if itor.serveFile(ctx, ctx.Req().URL.Path) {
 			return
