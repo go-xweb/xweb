@@ -6,11 +6,24 @@ type BeforeInterface interface {
 	Before(structName, actionName string) bool
 }
 
-type BeforeInterceptor struct {
+type AfterInterface interface {
+	After(structName, actionName string, result interface{}) bool
 }
 
-func (itor *BeforeInterceptor) Intercept(ctx *Context) {
-	if action := ctx.Action(); action != nil {
+type InitInterface interface {
+	Init()
+}
+
+type Events struct {
+}
+
+func (itor *Events) Intercept(ctx *Context) {
+	action := ctx.Action()
+	if action != nil {
+		if init, ok := action.(InitInterface); ok {
+			init.Init()
+		}
+
 		if before, ok := action.(BeforeInterface); ok {
 			route := ctx.Route()
 			if !before.Before(route.HandlerElement.Name(),
@@ -19,20 +32,9 @@ func (itor *BeforeInterceptor) Intercept(ctx *Context) {
 			}
 		}
 	}
-	ctx.Invoke()
-}
 
-type AfterInterface interface {
-	After(structName, actionName string, result interface{}) bool
-}
-
-type AfterInterceptor struct {
-}
-
-func (itor *AfterInterceptor) Intercept(ctx *Context) {
 	ctx.Invoke()
 
-	action := ctx.Action()
 	if action == nil {
 		return
 	}
@@ -46,20 +48,4 @@ func (itor *AfterInterceptor) Intercept(ctx *Context) {
 			fmt.Println("we current cannot disallow invoke to next interceptors")
 		}
 	}
-}
-
-type InitInterface interface {
-	Init()
-}
-
-type InitInterceptor struct {
-}
-
-func (itor *InitInterceptor) Intercept(ctx *Context) {
-	if action := ctx.Action(); action != nil {
-		if init, ok := action.(InitInterface); ok {
-			init.Init()
-		}
-	}
-	ctx.Invoke()
 }

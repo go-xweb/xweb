@@ -102,7 +102,7 @@ func (server *Server) Classic() *App {
 
 	app.Use(
 		NewLogInterceptor(server.Logger),
-		NewPanicInterceptor(
+		NewPanics(
 			server.Config.RecoverPanic,
 			app.AppConfig.Mode == Debug,
 		),
@@ -116,11 +116,9 @@ func (server *Server) Classic() *App {
 				"index.htm",
 			},
 		},
-		&InitInterceptor{},
-		&BeforeInterceptor{},
-		&AfterInterceptor{},
-		&RequestInterceptor{},
-		&ResponseInterceptor{},
+		&Events{},
+		&Requests{},
+		&Responses{},
 		app,
 		NewXsrfInterceptor(),
 		NewSessions(nil, time.Minute*20),

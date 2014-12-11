@@ -6,21 +6,21 @@ import (
 	"runtime"
 )
 
-type PanicInterceptor struct {
+type Panics struct {
 	recoverPanic bool
 	debug        bool
 	logger       Logger
 }
 
-func (inter *PanicInterceptor) SetLogger(logger Logger) {
+func (inter *Panics) SetLogger(logger Logger) {
 	inter.logger = logger
 }
 
-func NewPanicInterceptor(recoverPanic, isDebug bool) *PanicInterceptor {
-	return &PanicInterceptor{debug: isDebug}
+func NewPanics(recoverPanic, isDebug bool) *Panics {
+	return &Panics{debug: isDebug}
 }
 
-func (itor *PanicInterceptor) Intercept(ctx *Context) {
+func (itor *Panics) Intercept(ctx *Context) {
 	defer func() {
 		if e := recover(); e != nil {
 			if !itor.recoverPanic {

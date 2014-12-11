@@ -83,7 +83,7 @@ func (a *App) initApp() {
 	a.Use(
 		a.Configs,
 		NewLogInterceptor(logger),
-		NewPanicInterceptor(
+		NewPanics(
 			a.Server.Config.RecoverPanic,
 			a.AppConfig.Mode == Debug,
 		),
@@ -102,11 +102,9 @@ func (a *App) initApp() {
 				"index.htm",
 			},
 		},
-		&InitInterceptor{},
-		&BeforeInterceptor{},
-		&AfterInterceptor{},
-		&RequestInterceptor{},
-		&ResponseInterceptor{},
+		&Events{},
+		&Requests{},
+		&Responses{},
 		a,
 	)
 

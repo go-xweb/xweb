@@ -123,6 +123,9 @@ func (router *Router) addEqRoute(r string, methods map[string]bool,
 	}
 }
 
+type Mapper struct {
+}
+
 var (
 	mapperType = reflect.TypeOf(Mapper{})
 )

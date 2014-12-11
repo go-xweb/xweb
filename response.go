@@ -115,7 +115,31 @@ func (w *ResponseWriter) Redirect(url string, status ...int) error {
 
 // Notmodified writes a 304 HTTP response
 func (w *ResponseWriter) NotModified() {
-	w.WriteHeader(304)
+	w.WriteHeader(http.StatusNotModified)
+}
+
+// NotFound writes a 404 HTTP response
+func (w *ResponseWriter) NotFound(message ...string) error {
+	if len(message) == 0 {
+		return w.Abort(http.StatusNotFound, "Not Found")
+	}
+	return w.Abort(http.StatusNotFound, message[0])
+}
+
+// Abort is a helper method that sends an HTTP header and an optional
+// body. It is useful for returning 4xx or 5xx errors.
+// Once it has been called, any return value from the handler will
+// not be written to the response.
+func (w *ResponseWriter) Abort(status int, body string) error {
+	w.WriteHeader(status)
+	w.Write([]byte(body))
+	return nil
+}
+
+// SetHeader sets a response header. the current value
+// of that header will be overwritten .
+func (w *ResponseWriter) SetHeader(key string, value string) {
+	w.Header().Set(key, value)
 }
 
 func (r *ResponseWriter) Flush() error {
@@ -152,11 +176,19 @@ type ResponseInterface interface {
 	SetResponse(*ResponseWriter)
 }
 
-type ResponseInterceptor struct {
+type HttpResponseInterface interface {
+	SetResponse(http.ResponseWriter)
 }
 
-func (ii *ResponseInterceptor) Intercept(ctx *Context) {
+type Responses struct {
+}
+
+func (ii *Responses) Intercept(ctx *Context) {
 	if action := ctx.Action(); action != nil {
+		if s, ok := action.(HttpResponseInterface); ok {
+			s.SetResponse(ctx.Resp())
+		}
+
 		if s, ok := action.(ResponseInterface); ok {
 			s.SetResponse(ctx.Resp())
 		}
