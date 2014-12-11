@@ -1,6 +1,13 @@
 go test -run=TestBind
 go test -run=TestCallback
+go test -run=TestCfg
+go test -run=TestClassic
+go test -run=TestFilter
+go test -run=TestFunc
+go test -run=TestHello
 go test -run=TestInject
+go test -run=TestPanic
+go test -run=TestRender
+go test -run=TestSession
 go test -run=TestStatic
 go test -run=TestXsrf
-go test -run=TestSession

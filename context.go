@@ -62,8 +62,18 @@ func (ctx *Context) newAction() {
 		route, args := ctx.router.Match(reqPath, allowMethod)
 		if route != nil {
 			ctx.route = route
-			ctx.action = route.newAction().Interface()
-			ctx.args = args
+			vc := route.newAction()
+			ctx.action = vc.Interface()
+			if route.IsStruct() {
+				if route.isPtr {
+					ctx.args = []reflect.Value{vc}
+				} else {
+					ctx.args = []reflect.Value{vc.Elem()}
+				}
+				ctx.args = append(ctx.args, args...)
+			} else {
+				ctx.args = args
+			}
 		}
 		ctx.routeMatched = true
 	}
@@ -135,10 +145,7 @@ func (ctx *Context) Do() interface{} {
 		return nil
 	}
 
-	var vc = reflect.ValueOf(ctx.action)
-	function := vc.MethodByName(ctx.route.HandlerMethod)
-	ret := function.Call(ctx.args)
-
+	ret := ctx.route.method.Call(ctx.args)
 	if len(ret) > 0 {
 		return ret[0].Interface()
 	}

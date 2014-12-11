@@ -54,6 +54,14 @@ func NewApp(args ...string) *App {
 	}
 }
 
+func (a *App) Run(addr string) {
+	if a.Server == nil {
+		a.Server = mainServer
+		a.Server.AddApp(a)
+	}
+	a.Server.Run(addr)
+}
+
 func (a *App) Use(interceptors ...Interceptor) {
 	for _, inter := range interceptors {
 		a.interceptors = append(a.interceptors, inter)
@@ -131,8 +139,10 @@ func (a *App) initApp() {
 	}
 
 	if a.AppConfig.SessionOn {
-		a.Use(NewSessionInterceptor(a))
-		a.Map(a.SessionManager)
+		a.Use(NewSessions(
+			a.Server.SessionManager,
+			a.AppConfig.SessionTimeout,
+		))
 	}
 
 	a.InjectAll()

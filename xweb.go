@@ -23,8 +23,8 @@ func Run(addr string) {
 	mainServer.Run(addr)
 }
 
-func Use(interceptors ...Interceptor) {
-	mainServer.RootApp.Use(interceptors...)
+func Classic() *App {
+	return mainServer.Classic()
 }
 
 func SimpleTLSConfig(certFile, keyFile string) (*tls.Config, error) {

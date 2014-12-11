@@ -41,8 +41,10 @@ func (inter *BindInterceptor) Intercept(ctx *Context) {
 			return
 		}
 
-		vc := reflect.ValueOf(action)
-		namedStructMap(inter.logger, vc.Elem(), ctx.Req(), "")
+		if ctx.Route().IsStruct() {
+			vc := reflect.ValueOf(action)
+			namedStructMap(inter.logger, vc.Elem(), ctx.Req(), "")
+		}
 	}
 
 	ctx.Invoke()

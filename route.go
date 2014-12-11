@@ -6,10 +6,39 @@ import (
 	"strings"
 )
 
-/*
-var (
-	sc *Action = &Action{}
-)*/
+// Route
+type Route struct {
+	Path           string          //path string
+	CompiledRegexp *regexp.Regexp  //path regexp
+	HttpMethods    map[string]bool //GET POST HEAD DELETE etc.
+	HandlerMethod  string          //struct method name
+	HandlerElement reflect.Type    //handler element
+	hasAction      bool
+	method         reflect.Value
+	isStruct       bool // is this route is a struct or a func
+	isPtr          bool // when use struct, is the first receiver is ptr or struct
+}
+
+func (route *Route) IsStruct() bool {
+	return route.isStruct
+}
+
+func (route *Route) newAction() reflect.Value {
+	if route.isStruct {
+		vc := reflect.New(route.HandlerElement)
+
+		if route.hasAction {
+			c := &Action{
+				C: vc,
+			}
+
+			vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
+		}
+		return vc
+	} else {
+		return route.method
+	}
+}
 
 type Router struct {
 	basePath        string
@@ -38,28 +67,6 @@ func (router *Router) Action(name string) interface{} {
 	return nil
 }
 
-type Route struct {
-	Path           string          //path string
-	CompiledRegexp *regexp.Regexp  //path regexp
-	HttpMethods    map[string]bool //GET POST HEAD DELETE etc.
-	HandlerMethod  string          //struct method name
-	HandlerElement reflect.Type    //handler element
-	hasAction      bool
-}
-
-func (route *Route) newAction() reflect.Value {
-	vc := reflect.New(route.HandlerElement)
-
-	if route.hasAction {
-		c := &Action{
-			C: vc,
-		}
-
-		vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
-	}
-	return vc
-}
-
 func (router *Router) AddAction(cs ...interface{}) {
 	for _, c := range cs {
 		router.AddRouter(router.basePath, c)
@@ -78,7 +85,8 @@ func (router *Router) AutoAction(cs ...interface{}) {
 }
 
 func (router *Router) addRoute(r string, methods map[string]bool,
-	t reflect.Type, handler string, hasAction bool) error {
+	t reflect.Type, handler string, hasAction bool,
+	method reflect.Value, isStruct, isPtr bool) error {
 	cr, err := regexp.Compile(r)
 	if err != nil {
 		return err
@@ -90,12 +98,16 @@ func (router *Router) addRoute(r string, methods map[string]bool,
 		HandlerMethod:  handler,
 		HandlerElement: t,
 		hasAction:      hasAction,
+		method:         method,
+		isStruct:       isStruct,
+		isPtr:          isPtr,
 	})
 	return nil
 }
 
 func (router *Router) addEqRoute(r string, methods map[string]bool,
-	t reflect.Type, handler string, hasAction bool) {
+	t reflect.Type, handler string, hasAction bool,
+	method reflect.Value, isStruct, isPtr bool) {
 	if _, ok := router.RoutesEq[r]; !ok {
 		router.RoutesEq[r] = make(map[string]*Route)
 	}
@@ -104,6 +116,9 @@ func (router *Router) addEqRoute(r string, methods map[string]bool,
 			HandlerMethod:  handler,
 			HandlerElement: t,
 			hasAction:      hasAction,
+			method:         method,
+			isStruct:       isStruct,
+			isPtr:          isPtr,
 		}
 	}
 }
@@ -114,6 +129,22 @@ var (
 
 func (router *Router) AddRouter(url string, c interface{}) {
 	vc := reflect.ValueOf(c)
+	if vc.Kind() == reflect.Func {
+		router.addFuncRouter(url, c)
+	} else if vc.Kind() == reflect.Ptr && vc.Elem().Kind() == reflect.Struct {
+		router.addStructRouter(url, c)
+	}
+}
+
+func (router *Router) addFuncRouter(url string, c interface{}) {
+	vc := reflect.ValueOf(c)
+	t := vc.Type()
+	methods := map[string]bool{"GET": true, "POST": true}
+	router.addEqRoute(removeStick(url), methods, t, "", false, vc, false, false)
+}
+
+func (router *Router) addStructRouter(url string, c interface{}) {
+	vc := reflect.ValueOf(c)
 	t := vc.Type().Elem()
 	router.ActionsPath[t] = url
 	router.Actions[t.Name()] = c
@@ -121,16 +152,20 @@ func (router *Router) AddRouter(url string, c interface{}) {
 
 	hasAction := vc.Elem().FieldByName("Action").IsValid()
 
+	var usedFuncNames = make(map[string]bool)
+
 	for i := 0; i < t.NumField(); i++ {
 		if t.Field(i).Type != mapperType {
 			continue
 		}
 		name := t.Field(i).Name
 		a := strings.Title(name)
-		v := reflect.ValueOf(c).MethodByName(a)
-		if !v.IsValid() {
+		var m reflect.Method
+		var ok bool
+		if m, ok = t.MethodByName(a); !ok {
 			continue
 		}
+		usedFuncNames[a] = true
 
 		tag := t.Field(i).Tag
 		tagStr := tag.Get("xweb")
@@ -173,20 +208,32 @@ func (router *Router) AddRouter(url string, c interface{}) {
 		}
 
 		if isEq {
-			router.addEqRoute(removeStick(p), methods, t, a, hasAction)
+			router.addEqRoute(removeStick(p), methods,
+				t, a, hasAction, m.Func, true, false)
 		} else {
-			router.addRoute(removeStick(p), methods, t, a, hasAction)
+			router.addRoute(removeStick(p), methods,
+				t, a, hasAction, m.Func, true, false)
 		}
 	}
 
-	// added a default method as /
-	v := reflect.ValueOf(c).MethodByName("Do")
-	if !v.IsValid() {
+	// if method Do has been used, so don't mapping
+	if _, ok := usedFuncNames["Do"]; ok {
 		return
 	}
+
+	// added a default method Do as /
+	var m reflect.Method
+	var ok bool
+	if m, ok = t.MethodByName("Do"); !ok {
+		return
+	}
+
+	var isPtr = (m.Type.In(0).Kind() == reflect.Ptr)
+
 	p := strings.TrimRight(url, "/") + "/"
 	methods := map[string]bool{"GET": true, "POST": true}
-	router.addEqRoute(removeStick(p), methods, t, "Do", hasAction)
+	router.addEqRoute(removeStick(p), methods, t, "Do",
+		hasAction, m.Func, true, isPtr)
 }
 
 func (router *Router) Match(reqPath, allowMethod string) (*Route, []reflect.Value) {

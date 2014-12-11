@@ -86,6 +86,51 @@ func (s *Server) AddApp(a *App) {
 	}
 }
 
+func (server *Server) Classic() *App {
+	app := &App{
+		Injector:     NewInjector(),
+		Router:       NewRouter("/"),
+		interceptors: make([]Interceptor, 0),
+		Render: NewRender(
+			"templates",
+			true,
+			true,
+		),
+	}
+
+	app.Map(server.Logger)
+
+	app.Use(
+		NewLogInterceptor(server.Logger),
+		NewPanicInterceptor(
+			server.Config.RecoverPanic,
+			app.AppConfig.Mode == Debug,
+		),
+		app.Render,
+		NewCompressInterceptor(server.Config.StaticExtensionsToGzip),
+		&ReturnInterceptor{},
+		&Static{
+			RootPath: "static",
+			IndexFiles: []string{
+				"index.html",
+				"index.htm",
+			},
+		},
+		&InitInterceptor{},
+		&BeforeInterceptor{},
+		&AfterInterceptor{},
+		&RequestInterceptor{},
+		&ResponseInterceptor{},
+		&AppInterceptor{},
+		NewXsrfInterceptor(),
+		NewSessions(nil, time.Minute*20),
+	)
+
+	app.InjectAll()
+
+	return app
+}
+
 func (s *Server) AddAction(cs ...interface{}) {
 	s.RootApp.AddAction(cs...)
 }

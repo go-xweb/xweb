@@ -6,6 +6,8 @@ Xweb is a powerful and extensiable web framework for Go. It's inspired by Struts
 
 [![Build Status](https://drone.io/github.com/go-xweb/xweb/status.png)](https://drone.io/github.com/go-xweb/xweb/latest)  [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/go-xweb/xweb)
 
+## **HEAVILY DEVELOPMENT**
+
 ## Changelog
 
 * **v0.3** : **All THINGS CHANGED**. We have a new architecture inspired by struts and martini. Now you can write a interceptor yourself any time. But in fact, we have compitable old version of xweb.
@@ -43,8 +45,9 @@ func (Hello) Do() string {
 }
 
 func main() {
-    xweb.AddRouter("/", new(Hello))
-    xweb.Run(":8080")
+    x := xweb.Classic()
+    x.AddRouter("/", new(Hello))
+    x.Run(":8080")
 }
 ```
 
@@ -72,6 +75,24 @@ func (h *Hello) Do() string {
 
 func main() {
     xweb.AddRouter("/", new(Hello))
+    xweb.Run(":8080")
+}
+```
+
+Of course, we also support you use function as router
+```Go
+package main
+
+import (
+    "net/http"
+
+    "github.com/go-xweb/xweb"
+)
+
+func main() {
+    xweb.AddRouter("/", func() string {
+        return "hello xweb"
+    })
     xweb.Run(":8080")
 }
 ```

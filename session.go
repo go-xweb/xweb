@@ -10,28 +10,26 @@ type SessionInterface interface {
 	SetSessions(*httpsession.Session)
 }
 
-type SessionInterceptor struct {
-	sessionMgr *httpsession.Manager
+type Sessions struct {
+	*httpsession.Manager
 }
 
-func NewSessionInterceptor(app *App) *SessionInterceptor {
-	if app.Server.SessionManager != nil {
-		app.SessionManager = app.Server.SessionManager
-	} else {
-		app.SessionManager = httpsession.Default()
-		if app.AppConfig.SessionTimeout > time.Second {
-			app.SessionManager.SetMaxAge(app.AppConfig.SessionTimeout)
-		}
-		app.SessionManager.Run()
+func NewSessions(sessionMgr *httpsession.Manager, sessionTimeout time.Duration) *Sessions {
+	if sessionMgr == nil {
+		sessionMgr = httpsession.Default()
 	}
+	if sessionTimeout > time.Second {
+		sessionMgr.SetMaxAge(sessionTimeout)
+	}
+	sessionMgr.Run()
 
-	return &SessionInterceptor{sessionMgr: app.SessionManager}
+	return &Sessions{Manager: sessionMgr}
 }
 
-func (itor *SessionInterceptor) Intercept(ctx *Context) {
+func (itor *Sessions) Intercept(ctx *Context) {
 	if action := ctx.Action(); ctx != nil {
 		if s, ok := action.(SessionInterface); ok {
-			session := itor.sessionMgr.Session(ctx.Req(), ctx.Resp())
+			session := itor.Session(ctx.Req(), ctx.Resp())
 			s.SetSessions(session)
 		}
 	}

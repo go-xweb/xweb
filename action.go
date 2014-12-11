@@ -29,12 +29,13 @@ import (
 // about the request, including the http.Request object, the GET and POST params,
 // and acts as a Writer for the response.
 type Action struct {
-	Request *http.Request
-	App     *App
-	*ResponseWriter
+	App *App
 	*Configs
-	session *httpsession.Session
 	Logger
+
+	Request *http.Request
+	*ResponseWriter
+	session *httpsession.Session
 	*Renderer
 
 	C reflect.Value
