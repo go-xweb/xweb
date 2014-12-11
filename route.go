@@ -236,10 +236,12 @@ func (router *Router) addStructRouter(url string, c interface{}) {
 		hasAction, m.Func, true, isPtr)
 }
 
+// when a request ask, then match the correct route
 func (router *Router) Match(reqPath, allowMethod string) (*Route, []reflect.Value) {
 	var route *Route
 	var args = make([]reflect.Value, 0)
 
+	// for non-regular path, search the map
 	if routes, ok := router.RoutesEq[reqPath]; ok {
 		if route, ok = routes[allowMethod]; ok {
 			return route, args

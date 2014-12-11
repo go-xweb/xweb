@@ -121,7 +121,7 @@ func (server *Server) Classic() *App {
 		&AfterInterceptor{},
 		&RequestInterceptor{},
 		&ResponseInterceptor{},
-		&AppInterceptor{},
+		app,
 		NewXsrfInterceptor(),
 		NewSessions(nil, time.Minute*20),
 	)
@@ -207,11 +207,11 @@ func (s *Server) Process(w http.ResponseWriter, req *http.Request) {
 	}
 	for _, app := range s.Apps {
 		if app != s.RootApp && strings.HasPrefix(req.URL.Path, app.BasePath) {
-			app.routeHandler(req, w)
+			app.ServeHttp(w, req)
 			return
 		}
 	}
-	s.RootApp.routeHandler(req, w)
+	s.RootApp.ServeHttp(w, req)
 	_, _ = XHook.Call("AfterProcess", &result, s, w, req)
 }
 

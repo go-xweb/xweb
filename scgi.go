@@ -144,7 +144,7 @@ func (s *Server) handleScgiRequest(fd io.ReadWriteCloser) {
 	}
 	sc := scgiConn{fd, req, make(map[string][]string), false}
 	for _, app := range s.Apps {
-		app.routeHandler(req, &sc)
+		app.ServeHttp(&sc, req)
 	}
 	sc.finishRequest()
 	fd.Close()

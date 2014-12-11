@@ -107,7 +107,7 @@ func (a *App) initApp() {
 		&AfterInterceptor{},
 		&RequestInterceptor{},
 		&ResponseInterceptor{},
-		&AppInterceptor{},
+		a,
 	)
 
 	if a.AppConfig.FormMapToStruct {
@@ -156,7 +156,7 @@ func (a *App) SetTemplateDir(path string) {
 	a.AppConfig.TemplateDir = path
 }
 
-func (a *App) routeHandler(req *http.Request, w http.ResponseWriter) {
+func (a *App) ServeHttp(w http.ResponseWriter, req *http.Request) {
 	//ignore errors from ParseForm because it's usually harmless.
 	ct := req.Header.Get("Content-Type")
 	if strings.Contains(ct, "multipart/form-data") {
@@ -190,15 +190,10 @@ type AppInterface interface {
 	SetApp(*App)
 }
 
-type AppInterceptor struct {
-	app *App
-}
-
-func (inter *AppInterceptor) Intercept(ctx *Context) {
-	action := ctx.Action()
-	if action != nil {
+func (app *App) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
 		if apper, ok := action.(AppInterface); ok {
-			apper.SetApp(inter.app)
+			apper.SetApp(app)
 		}
 	}
 	ctx.Invoke()
