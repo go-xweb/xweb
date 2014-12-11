@@ -51,6 +51,7 @@ func main() {
 }
 ```
 
+## Inject Example
 And if you need something, for example request, then use the below codes.
 ```Go
 package main
@@ -79,6 +80,7 @@ func main() {
 }
 ```
 
+## Function Example
 Of course, we also support you use function as router
 ```Go
 package main
@@ -97,12 +99,33 @@ func main() {
 }
 ```
 
-Use your custom plugin.
+## Option Example
+Use a struct's method change the option.
 ```Go
-type HelloInterceptor struct {
+type NoCheckXsrf struct {
 }
 
-func (HelloInterceptor) Intercept(ctx *Context) {
+func (NoCheckXsrf) CheckXsrf() bool {
+    return false
+}
+
+func (NoCheckXsrf) Do() string {
+    return "this action will not check xsrf"
+}
+
+func main() {
+
+}
+```
+
+## Plugin Example
+Use your custom plugin. This plugin in example will change the result after `Do` method be invoked.
+
+```Go
+type HelloPlugin struct {
+}
+
+func (HelloPlugin) Intercept(ctx *Context) {
     ctx.Invoke()
 
     if s, ok := ctx.Result.(string); ok {
@@ -113,9 +136,10 @@ func (HelloInterceptor) Intercept(ctx *Context) {
 }
 
 func main() {
-    xweb.Use(new(HelloInterceptor))
-    xweb.AddRouter("/", new(Hello))
-    xweb.Run(":8080")
+    x := xweb.Classic()
+    x.Use(new(HelloPlugin))
+    x.AddRouter("/", new(Hello))
+    x.Run(":8080")
 }
 ```
 

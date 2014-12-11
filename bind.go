@@ -25,15 +25,15 @@ type BindOptionInterface interface {
 	AutoMapForm() bool
 }
 
-type BindInterceptor struct {
+type Binds struct {
 	logger Logger
 }
 
-func (itor *BindInterceptor) SetLogger(logger Logger) {
+func (itor *Binds) SetLogger(logger Logger) {
 	itor.logger = logger
 }
 
-func (inter *BindInterceptor) Intercept(ctx *Context) {
+func (inter *Binds) Intercept(ctx *Context) {
 	if action := ctx.Action(); action != nil {
 		// if action ask don't automap then continue
 		if checker, ok := action.(BindOptionInterface); ok && !checker.AutoMapForm() {

@@ -52,7 +52,7 @@ func (NoCheckXsrfAction) CheckXsrf() bool {
 	return false
 }
 
-func (NoCheckXsrfAction) Execute() string {
+func (NoCheckXsrfAction) Do() string {
 	return "this action will not check xsrf"
 }
 

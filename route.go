@@ -17,6 +17,7 @@ type Route struct {
 	method         reflect.Value
 	isStruct       bool // is this route is a struct or a func
 	isPtr          bool // when use struct, is the first receiver is ptr or struct
+	actionPool *ActionPool
 }
 
 func (route *Route) IsStruct() bool {
@@ -24,20 +25,17 @@ func (route *Route) IsStruct() bool {
 }
 
 func (route *Route) newAction() reflect.Value {
-	if route.isStruct {
-		vc := reflect.New(route.HandlerElement)
-
-		if route.hasAction {
-			c := &Action{
-				C: vc,
-			}
-
-			vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
-		}
-		return vc
-	} else {
+	if !route.isStruct {
 		return route.method
 	}
+
+	// TODO: use a pool to do new
+	vc := reflect.New(route.HandlerElement)
+	if route.hasAction {
+		c := route.actionPool.New()
+		vc.Elem().FieldByName("Action").Set(reflect.ValueOf(c))
+	}
+	return vc
 }
 
 type Router struct {
@@ -47,6 +45,7 @@ type Router struct {
 	Actions         map[string]interface{}
 	ActionsPath     map[reflect.Type]string
 	ActionsNamePath map[string]string
+	actionPool *ActionPool
 }
 
 func NewRouter(basePath string) *Router {
@@ -57,6 +56,7 @@ func NewRouter(basePath string) *Router {
 		Actions:         map[string]interface{}{},
 		ActionsPath:     map[reflect.Type]string{},
 		ActionsNamePath: map[string]string{},
+		actionPool: NewActionPool(2000),
 	}
 }
 
@@ -101,6 +101,7 @@ func (router *Router) addRoute(r string, methods map[string]bool,
 		method:         method,
 		isStruct:       isStruct,
 		isPtr:          isPtr,
+		actionPool: router.actionPool,
 	})
 	return nil
 }
@@ -119,6 +120,7 @@ func (router *Router) addEqRoute(r string, methods map[string]bool,
 			method:         method,
 			isStruct:       isStruct,
 			isPtr:          isPtr,
+			actionPool: router.actionPool,
 		}
 	}
 }

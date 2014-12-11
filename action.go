@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"sync"
 
 	"github.com/go-xweb/httpsession"
 )
@@ -35,8 +36,7 @@ type Action struct {
 	*ResponseWriter
 	session *httpsession.Session
 	*Renderer
-
-	C reflect.Value
+	c reflect.Value // the sub struct's pointer's value
 }
 
 func (c *Action) DisableHttpCache() {
@@ -105,6 +105,11 @@ func (c *Action) SetRequest(req *Request) {
 // +inject
 func (c *Action) SetResponse(resp *ResponseWriter) {
 	c.ResponseWriter = resp
+}
+
+// +inject
+func (c *Action) SetAction(action interface{}) {
+	c.c = reflect.ValueOf(action)
 }
 
 // +inject
@@ -217,7 +222,7 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 	if len(anotherc) > 0 {
 		t = reflect.TypeOf(anotherc[0]).Elem()
 	} else {
-		t = c.C.Type().Elem()
+		t = c.c.Type().Elem()
 	}
 
 	root, ok := c.App.ActionsPath[t]
@@ -253,7 +258,7 @@ func (c *Action) BasePath() string {
 }
 
 func (c *Action) Namespace() string {
-	return c.App.ActionsPath[c.C.Type()]
+	return c.App.ActionsPath[c.c.Type()]
 }
 
 func (c *Action) SetConfig(name string, value interface{}) {
@@ -293,4 +298,46 @@ func (c *Action) SetSession(key string, value interface{}) {
 
 func (c *Action) DelSession(key string) {
 	c.Session().Del(key)
+}
+
+type ActionInterface interface {
+	SetAction(interface{})
+}
+
+type Actions struct {
+}
+
+func (actions *Actions) Intercept(ctx *Context) {
+	if action := ctx.Action(); action != nil {
+		if a, ok := action.(ActionInterface); ok {
+			a.SetAction(action) 
+		}
+	}
+	ctx.Invoke()
+}
+
+type ActionPool struct {
+	size int
+	pool []Action
+	cur int
+	lock sync.Mutex
+}
+
+func NewActionPool(size int) *ActionPool {
+	return &ActionPool{
+		size:size,
+		pool:make([]Action, size),
+		cur:0,
+	}
+}
+
+func (pool *ActionPool) New() *Action {
+	lock.Lock()
+	defer lock.Unlock()
+	if pool.cur == len(pool.pool) {
+		pool.pool = make([]Action, pool.size)
+		pool.cur = 0
+	}
+	pool.cur++
+	return &pool.pool[pool.cur]
 }

@@ -103,13 +103,14 @@ func (a *App) initApp() {
 			},
 		},
 		&Events{},
+		&Actions{},
 		&Requests{},
 		&Responses{},
 		a,
 	)
 
 	if a.AppConfig.FormMapToStruct {
-		a.Use(&BindInterceptor{})
+		a.Use(&Binds{})
 	}
 
 	if a.AppConfig.StaticFileVersion {
