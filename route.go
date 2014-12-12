@@ -46,6 +46,7 @@ type Router struct {
 	ActionsPath     map[reflect.Type]string
 	ActionsNamePath map[string]string
 	actionPool *ActionPool
+	defaultFunc string
 }
 
 func NewRouter(basePath string) *Router {
@@ -57,6 +58,7 @@ func NewRouter(basePath string) *Router {
 		ActionsPath:     map[reflect.Type]string{},
 		ActionsNamePath: map[string]string{},
 		actionPool: NewActionPool(2000),
+		defaultFunc: "Do",
 	}
 }
 
@@ -167,9 +169,14 @@ func (router *Router) addStructRouter(url string, c interface{}) {
 		a := strings.Title(name)
 		var m reflect.Method
 		var ok bool
-		if m, ok = t.MethodByName(a); !ok {
+		var isPtr bool
+		if m, ok = t.MethodByName(a); ok {
+		} else if m, ok = vc.Type().MethodByName(a); ok {
+			isPtr = true
+		} else {
 			continue
 		}
+
 		usedFuncNames[a] = true
 
 		tag := t.Field(i).Tag
@@ -214,30 +221,32 @@ func (router *Router) addStructRouter(url string, c interface{}) {
 
 		if isEq {
 			router.addEqRoute(removeStick(p), methods,
-				t, a, hasAction, m.Func, true, false)
+				t, a, hasAction, m.Func, true, isPtr)
 		} else {
 			router.addRoute(removeStick(p), methods,
-				t, a, hasAction, m.Func, true, false)
+				t, a, hasAction, m.Func, true, isPtr)
 		}
 	}
 
 	// if method Do has been used, so don't mapping
-	if _, ok := usedFuncNames["Do"]; ok {
+	if _, ok := usedFuncNames[router.defaultFunc]; ok {
 		return
 	}
 
 	// added a default method Do as /
 	var m reflect.Method
 	var ok bool
-	if m, ok = t.MethodByName("Do"); !ok {
+	var isPtr bool
+	if m, ok = t.MethodByName(router.defaultFunc); ok {
+	} else if m, ok = vc.Type().MethodByName(router.defaultFunc); ok {
+		isPtr = true
+	} else {
 		return
 	}
 
-	var isPtr = (m.Type.In(0).Kind() == reflect.Ptr)
-
 	p := strings.TrimRight(url, "/") + "/"
 	methods := map[string]bool{"GET": true, "POST": true}
-	router.addEqRoute(removeStick(p), methods, t, "Do",
+	router.addEqRoute(removeStick(p), methods, t, router.defaultFunc,
 		hasAction, m.Func, true, isPtr)
 }
 

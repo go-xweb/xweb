@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/go-xweb/uuid"
 )
@@ -20,25 +21,56 @@ type XsrfOptionInterface interface {
 	CheckXsrf() bool
 }
 
-type XsrfInterceptor struct {
+type Xsrf struct {
+	render *Render
+	timeout time.Duration
 }
 
-func NewXsrfInterceptor() *XsrfInterceptor {
-	return &XsrfInterceptor{}
+func NewXsrf(timeout time.Duration) *Xsrf {
+	return &Xsrf{
+		timeout:timeout,
+	}
 }
 
-func (xsrf *XsrfInterceptor) SetRender(render *Render) {
+func (xsrf *Xsrf) SetRender(render *Render) {
+	xsrf.render = render
 	render.FuncMaps["XsrfName"] = XsrfName
 }
 
-func (inter *XsrfInterceptor) Intercept(ctx *Context) {
-	if action := ctx.Action(); action != nil && ctx.Req().Method == "POST" {
-		// if action implements check xsrf option and ask not check then return
-		if checker, ok := action.(XsrfOptionInterface); ok && !checker.CheckXsrf() {
-			ctx.Invoke()
-			return
+func (xsrf *Xsrf) Intercept(ctx *Context) {
+	var action interface{}
+	if action = ctx.Action(); action == nil {
+		ctx.Invoke()
+		return
+	}
+
+	// if action implements check xsrf option and ask not check then return
+	if checker, ok := action.(XsrfOptionInterface); ok && !checker.CheckXsrf() {
+		ctx.Invoke()
+		return
+	}
+
+	if ctx.Req().Method == "GET" {
+		xsrf.render.FuncMaps["XsrfName"] = XSRF_TAG
+
+		var val string = ""
+		cookie, err := ctx.Req().Cookie(XSRF_TAG)
+		if err != nil {
+			val = uuid.NewRandom().String()
+			cookie = NewCookie(XSRF_TAG, val, int64(xsrf.timeout))
+			ctx.Resp().SetHeader("Set-Cookie", cookie.String())
+		} else {
+			val = cookie.Value
 		}
 
+		xsrf.render.FuncMaps["XsrfValue"] = func() string {
+			return val
+		}
+		xsrf.render.FuncMaps["XsrfFormHtml"] = func() template.HTML {
+			return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v" />`,
+			XSRF_TAG, val))
+		}
+	} else if ctx.Req().Method == "POST" {
 		res, err := ctx.Req().Cookie(XSRF_TAG)
 		formVals := ctx.Req().Form[XSRF_TAG]
 		var formVal string
@@ -53,24 +85,4 @@ func (inter *XsrfInterceptor) Intercept(ctx *Context) {
 	}
 
 	ctx.Invoke()
-}
-
-func (c *Action) XsrfValue() string {
-	var val string = ""
-	cookie, err := c.GetCookie(XSRF_TAG)
-	if err != nil {
-		val = uuid.NewRandom().String()
-		c.SetCookie(NewCookie(XSRF_TAG, val, int64(c.App.AppConfig.SessionTimeout)))
-	} else {
-		val = cookie.Value
-	}
-	return val
-}
-
-func (c *Action) XsrfFormHtml() template.HTML {
-	if c.App.AppConfig.CheckXsrf {
-		return template.HTML(fmt.Sprintf(`<input type="hidden" name="%v" value="%v" />`,
-			XSRF_TAG, c.XsrfValue()))
-	}
-	return template.HTML("")
 }

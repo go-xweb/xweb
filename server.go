@@ -107,7 +107,7 @@ func (server *Server) Classic() *App {
 			app.AppConfig.Mode == Debug,
 		),
 		app.Render,
-		NewCompressInterceptor(server.Config.StaticExtensionsToGzip),
+		NewCompress(server.Config.StaticExtensionsToGzip),
 		&ReturnInterceptor{},
 		&Static{
 			RootPath: "static",
@@ -120,7 +120,7 @@ func (server *Server) Classic() *App {
 		&Requests{},
 		&Responses{},
 		app,
-		NewXsrfInterceptor(),
+		NewXsrf(time.Minute*20),
 		NewSessions(nil, time.Minute*20),
 	)
 

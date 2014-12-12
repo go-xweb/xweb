@@ -8,6 +8,8 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
+	"net/http"
+	"strings"
 
 	"github.com/howeyc/fsnotify"
 )
@@ -214,45 +216,71 @@ func (itor *StaticVersions) Intercept(ctx *Context) {
 }
 
 type Static struct {
+	Prefix string
 	RootPath   string
 	IndexFiles []string
 }
 
-func (itor *Static) serveFile(ctx *Context, path string) bool {
-	fPath := filepath.Join(itor.RootPath, path)
+func (itor *Static) Intercept(ctx *Context) {
+	if ctx.Req().Method != "GET" && ctx.Req().Method != "HEAD" {
+		ctx.Invoke()
+		return
+	}
+
+	var rPath = ctx.Req().URL.Path
+
+	// if defined prefix, then only check prefix
+	if itor.Prefix != "" {
+		if !strings.HasPrefix(ctx.Req().URL.Path, "/"+itor.Prefix) {
+			ctx.Invoke()
+			return
+		} else {
+			if len("/"+itor.Prefix) == len(ctx.Req().URL.Path) {
+				rPath = ""
+			} else {
+				rPath = ctx.Req().URL.Path[len("/"+itor.Prefix):]
+			}
+		}
+	}
+
+	fPath := filepath.Join(itor.RootPath, rPath)
 	finfo, err := os.Stat(fPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			ctx.HandleResult(err)
-			return true
-		}
-	} else if !finfo.IsDir() {
-		err := ctx.ServeFile(fPath)
-		if err != nil {
-			ctx.HandleResult(err)
-		}
-		return true
-	}
-	return false
-}
-
-func (itor *Static) Intercept(ctx *Context) {
-	if ctx.Req().Method == "GET" || ctx.Req().Method == "HEAD" {
-		if itor.serveFile(ctx, ctx.Req().URL.Path) {
+			ctx.resp.WriteHeader(http.StatusInternalServerError)
+			ctx.resp.Write([]byte(err.Error()))
 			return
 		}
-	}
-
-	ctx.Invoke()
-
-	// try serving index.html or index.htm
-	if !ctx.Resp().Written() && (ctx.Req().Method == "GET" || ctx.Req().Method == "HEAD") {
+	} else if !finfo.IsDir() {
+		err := ctx.resp.ServeFile(ctx.req, fPath)
+		if err != nil {
+			ctx.resp.WriteHeader(http.StatusInternalServerError)
+			ctx.resp.Write([]byte(err.Error()))
+		}
+		return
+	} else {
+		// try serving index.html or index.htm
 		if len(itor.IndexFiles) > 0 {
 			for _, index := range itor.IndexFiles {
-				if itor.serveFile(ctx, path.Join(ctx.Req().URL.Path, index)) {
+				nPath := filepath.Join(fPath, index)
+				finfo, err = os.Stat(nPath)
+				if err != nil {
+					if !os.IsNotExist(err) {
+						ctx.resp.WriteHeader(http.StatusInternalServerError)
+						ctx.resp.Write([]byte(err.Error()))
+						return
+					}
+				} else if !finfo.IsDir() {
+					err = ctx.resp.ServeFile(ctx.req, nPath)
+					if err != nil {
+						ctx.resp.WriteHeader(http.StatusInternalServerError)
+						ctx.resp.Write([]byte(err.Error()))
+					}
 					return
 				}
 			}
 		}
 	}
+
+	ctx.Invoke()
 }

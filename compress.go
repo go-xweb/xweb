@@ -7,17 +7,17 @@ import (
 	"strings"
 )
 
-type GZipInterceptor struct {
+type Compress struct {
 	staticExts []string
 }
 
-func NewCompressInterceptor(staticExts []string) *GZipInterceptor {
-	return &GZipInterceptor{
+func NewCompress(staticExts []string) *Compress {
+	return &Compress{
 		staticExts: staticExts,
 	}
 }
 
-func (inter *GZipInterceptor) Intercept(ctx *Context) {
+func (inter *Compress) Intercept(ctx *Context) {
 	ctx.Invoke()
 
 	// for cache server

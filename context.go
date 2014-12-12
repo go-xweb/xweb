@@ -58,7 +58,6 @@ func (ctx *Context) newAction() {
 	if !ctx.routeMatched {
 		reqPath := removeStick(ctx.Req().URL.Path)
 		allowMethod := Ternary(ctx.Req().Method == "HEAD", "GET", ctx.Req().Method).(string)
-
 		route, args := ctx.router.Match(reqPath, allowMethod)
 		if route != nil {
 			ctx.route = route
@@ -95,39 +94,6 @@ func (ctx *Context) Req() *http.Request {
 
 func (ctx *Context) Resp() *ResponseWriter {
 	return ctx.resp
-}
-
-func (ctx *Context) ServeFile(path string) error {
-	return ctx.resp.ServeFile(ctx.req, path)
-}
-
-func (ctx *Context) HandleResult(result interface{}) bool {
-	if IsNil(result) {
-		return false
-	}
-
-	if ctx.resp.Written() {
-		return true
-	}
-
-	if err, ok := result.(AbortError); ok {
-		ctx.resp.WriteHeader(err.Code())
-		ctx.resp.Write([]byte(err.Error()))
-		return true
-	} else if err, ok := result.(error); ok {
-		ctx.resp.WriteHeader(http.StatusInternalServerError)
-		ctx.resp.Write([]byte(err.Error()))
-		return true
-	} else if bs, ok := result.([]byte); ok {
-		ctx.resp.WriteHeader(http.StatusOK)
-		ctx.resp.Write(bs)
-		return true
-	} else if s, ok := result.(string); ok {
-		ctx.resp.WriteHeader(http.StatusOK)
-		ctx.resp.Write([]byte(s))
-		return true
-	}
-	return false
 }
 
 func (ctx *Context) Invoke() {

@@ -12,6 +12,14 @@ import (
 	"strconv"
 )
 
+type ResponseType int
+
+const (
+	AutoResponse  = iota + 1
+	JsonResponse
+	XmlResponse
+)
+
 type ResponseWriter struct {
 	resp       http.ResponseWriter
 	buffer     []byte

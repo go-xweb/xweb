@@ -2,8 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"testing"
 
 	"github.com/go-xweb/xweb"
@@ -21,26 +19,20 @@ func (a *BindAction) Do() string {
 }
 
 func TestBind(t *testing.T) {
-	xweb.MainServer().Config.EnableGzip = false
-	xweb.AddAction(new(BindAction))
 	go func() {
-		xweb.Run("0.0.0.0:9997")
+		x := xweb.Classic()
+		x.Use(&xweb.Binds{})
+		x.AddAction(new(BindAction))
+		x.Run("0.0.0.0:9997")
 	}()
 
-	resp, err := http.Get("http://localhost:9997/?id=1&name=lllll")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer resp.Body.Close()
-
-	bs, err := ioutil.ReadAll(resp.Body)
+	res, err := get("http://localhost:9997/?id=1&name=lllll")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if string(bs) != "1-lllll" {
+	if res != "1-lllll" {
 		t.Error("not equal")
 		return
 	}

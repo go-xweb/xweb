@@ -90,7 +90,7 @@ func (a *App) initApp() {
 	)
 
 	if a.Server.Config.EnableGzip {
-		a.Use(NewCompressInterceptor(a.Server.Config.StaticExtensionsToGzip))
+		a.Use(NewCompress(a.Server.Config.StaticExtensionsToGzip))
 	}
 
 	a.Use(
@@ -134,7 +134,7 @@ func (a *App) initApp() {
 	a.Use(render)
 
 	if a.AppConfig.CheckXsrf {
-		a.Use(NewXsrfInterceptor())
+		a.Use(NewXsrf(a.AppConfig.SessionTimeout))
 	}
 
 	if a.AppConfig.SessionOn {
