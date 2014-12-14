@@ -25,7 +25,8 @@ func TestStatic(t *testing.T) {
 	f.Close()
 
 	go func() {
-		xweb.Run("0.0.0.0:9999")
+		x := xweb.Static()
+		x.Run("0.0.0.0:9999")
 	}()
 
 	output, err := get("http://localhost:9999/a.html")
@@ -38,8 +39,6 @@ func TestStatic(t *testing.T) {
 		t.Error("content is not equeal", output)
 		return
 	}
-
-
 
 	output, err = get("http://localhost:9999/b.html")
 	if err != nil {

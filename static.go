@@ -215,13 +215,13 @@ func (itor *StaticVersions) Intercept(ctx *Context) {
 	ctx.Invoke()
 }
 
-type Static struct {
+type Statics struct {
 	Prefix string
 	RootPath   string
 	IndexFiles []string
 }
 
-func (itor *Static) Intercept(ctx *Context) {
+func (itor *Statics) Intercept(ctx *Context) {
 	if ctx.Req().Method != "GET" && ctx.Req().Method != "HEAD" {
 		ctx.Invoke()
 		return

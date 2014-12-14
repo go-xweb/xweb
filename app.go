@@ -95,7 +95,7 @@ func (a *App) initApp() {
 
 	a.Use(
 		&ReturnInterceptor{},
-		&Static{
+		&Statics{
 			RootPath: a.AppConfig.StaticDir,
 			IndexFiles: []string{
 				"index.html",

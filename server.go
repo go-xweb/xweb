@@ -109,7 +109,7 @@ func (server *Server) Classic() *App {
 		app.Render,
 		NewCompress(server.Config.StaticExtensionsToGzip),
 		&ReturnInterceptor{},
-		&Static{
+		&Statics{
 			RootPath: "static",
 			IndexFiles: []string{
 				"index.html",
@@ -122,6 +122,36 @@ func (server *Server) Classic() *App {
 		app,
 		NewXsrf(time.Minute*20),
 		NewSessions(nil, time.Minute*20),
+	)
+
+	app.InjectAll()
+
+	return app
+}
+
+func (server *Server) Static() *App {
+	app := &App{
+		Injector:     NewInjector(),
+		Router:       NewRouter("/"),
+		interceptors: make([]Interceptor, 0),
+	}
+
+	app.Map(server.Logger)
+
+	app.Use(
+		NewLogInterceptor(server.Logger),
+		NewPanics(
+			server.Config.RecoverPanic,
+			app.AppConfig.Mode == Debug,
+		),
+		NewCompress(server.Config.StaticExtensionsToGzip),
+		&Statics{
+			RootPath: "static",
+			IndexFiles: []string{
+				"index.html",
+				"index.htm",
+			},
+		},
 	)
 
 	app.InjectAll()
