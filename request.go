@@ -1,24 +1,26 @@
 package xweb
 
 import (
-"net/http"
-"strings"
-"strconv"
-"reflect"
-"bytes"
-"io/ioutil"
-"mime/multipart"
-"net/url"
+	"bytes"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"net/url"
+	"reflect"
+	"strconv"
+	"strings"
+
+	"github.com/lunny/tango"
 )
 
 type Request struct {
 	*http.Request
-	logger Logger
+	logger tango.Logger
 
 	requestBody []byte
 }
 
-func NewRequest(request *http.Request, logger Logger) *Request {
+func NewRequest(request *http.Request, logger tango.Logger) *Request {
 	return &Request{request, logger, nil}
 }
 
@@ -266,14 +268,14 @@ type RequestInterface interface {
 }
 
 type Requests struct {
-	logger Logger
+	logger tango.Logger
 }
 
-func (ii *Requests) SetLogger(logger Logger) {
+func (ii *Requests) SetLogger(logger tango.Logger) {
 	ii.logger = logger
 }
 
-func (ii *Requests) Intercept(ctx *Context) {
+func (ii *Requests) Handle(ctx *tango.Context) {
 	if action := ctx.Action(); action != nil {
 		if s, ok := action.(HttpRequestInterface); ok {
 			s.SetRequest(ctx.Req())
@@ -284,5 +286,5 @@ func (ii *Requests) Intercept(ctx *Context) {
 		}
 	}
 
-	ctx.Invoke()
+	ctx.Next()
 }

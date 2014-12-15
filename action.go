@@ -17,10 +17,11 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 	"sync"
+	"time"
 
 	"github.com/go-xweb/httpsession"
+	"github.com/lunny/tango"
 )
 
 // An Action object or it's substruct is created for every incoming HTTP request.
@@ -30,13 +31,17 @@ import (
 type Action struct {
 	App *App
 	*Configs
-	Logger
+	tango.Logger
 
+	*tango.Context
+	*tango.Renderer
 	*Request
-	*ResponseWriter
 	session *httpsession.Session
-	*Renderer
-	c reflect.Value // the sub struct's pointer's value
+	c       reflect.Value // the sub struct's pointer's value
+}
+
+func (c *Action) SetHeader(k, v string) {
+	c.ResponseWriter.Header().Set(k, v)
 }
 
 func (c *Action) DisableHttpCache() {
@@ -92,7 +97,7 @@ func (c *Action) Write(content string, values ...interface{}) error {
 }
 
 // +inject
-func (c *Action) SetRenderer(renderer *Renderer) {
+func (c *Action) SetRenderer(renderer *tango.Renderer) {
 	c.Renderer = renderer
 }
 
@@ -103,7 +108,7 @@ func (c *Action) SetRequest(req *Request) {
 }
 
 // +inject
-func (c *Action) SetResponse(resp *ResponseWriter) {
+func (c *Action) SetResponse(resp tango.ResponseWriter) {
 	c.ResponseWriter = resp
 }
 
@@ -118,7 +123,7 @@ func (c *Action) SetApp(app *App) {
 }
 
 // +inject
-func (c *Action) SetLogger(logger Logger) {
+func (c *Action) SetLogger(logger tango.Logger) {
 	c.Logger = logger
 }
 
@@ -227,14 +232,14 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 
 	root, ok := c.App.ActionsPath[t]
 	if !ok {
-		return NotFound()
+		return tango.NotFound()
 	}
 
 	uris := strings.Split(m, "?")
 
 	tag, ok := t.FieldByName(uris[0])
 	if !ok {
-		return NotFound()
+		return tango.NotFound()
 	}
 
 	tagStr := tag.Tag.Get("xweb")
@@ -250,7 +255,7 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 		rPath = path.Join(root, m)
 	}
 	rPath = strings.Replace(rPath, "//", "/", -1)
-	return c.Redirect(rPath)
+	return c.Context.Redirect(rPath)
 }
 
 func (c *Action) BasePath() string {
@@ -304,30 +309,37 @@ type ActionInterface interface {
 	SetAction(interface{})
 }
 
+type ContextInterface interface {
+	SetContext(*tango.Context)
+}
+
 type Actions struct {
 }
 
-func (actions *Actions) Intercept(ctx *Context) {
+func (actions *Actions) Handle(ctx *tango.Context) {
 	if action := ctx.Action(); action != nil {
+		if c, ok := action.(ContextInterface); ok {
+			c.SetContext(ctx)
+		}
 		if a, ok := action.(ActionInterface); ok {
-			a.SetAction(action) 
+			a.SetAction(action)
 		}
 	}
-	ctx.Invoke()
+	ctx.Next()
 }
 
 type ActionPool struct {
 	size int
 	pool []Action
-	cur int
+	cur  int
 	lock sync.Mutex
 }
 
 func NewActionPool(size int) *ActionPool {
 	return &ActionPool{
-		size:size,
-		pool:make([]Action, size),
-		cur:0,
+		size: size,
+		pool: make([]Action, size),
+		cur:  0,
 	}
 }
 

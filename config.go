@@ -3,6 +3,8 @@ package xweb
 import (
 	"sync"
 	"time"
+
+	"github.com/lunny/tango"
 )
 
 type AppConfig struct {
@@ -63,12 +65,12 @@ type ConfigsInterface interface {
 	SetConfigs(configs *Configs)
 }
 
-func (cfgs *Configs) Intercept(ctx *Context) {
+func (cfgs *Configs) Handle(ctx *tango.Context) {
 	if action := ctx.Action(); action != nil {
 		if c, ok := action.(ConfigsInterface); ok {
 			c.SetConfigs(cfgs)
 		}
 	}
 
-	ctx.Invoke()
+	ctx.Next()
 }

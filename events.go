@@ -1,6 +1,10 @@
 package xweb
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/lunny/tango"
+)
 
 type BeforeInterface interface {
 	Before(structName, actionName string) bool
@@ -14,10 +18,11 @@ type InitInterface interface {
 	Init()
 }
 
-type Events struct {
+func NewEventsHandle() tango.Handler {
+	return tango.HandlerFunc(EventsHandle)
 }
 
-func (itor *Events) Intercept(ctx *Context) {
+func EventsHandle(ctx *tango.Context) {
 	action := ctx.Action()
 	if action != nil {
 		if init, ok := action.(InitInterface); ok {
@@ -26,14 +31,14 @@ func (itor *Events) Intercept(ctx *Context) {
 
 		if before, ok := action.(BeforeInterface); ok {
 			route := ctx.Route()
-			if !before.Before(route.HandlerElement.Name(),
-				route.HandlerMethod) {
+			if !before.Before(route.StructType().Name(),
+				route.Method().Type().Name()) {
 				return
 			}
 		}
 	}
 
-	ctx.Invoke()
+	ctx.Next()
 
 	if action == nil {
 		return
@@ -42,8 +47,8 @@ func (itor *Events) Intercept(ctx *Context) {
 	if after, ok := action.(AfterInterface); ok {
 		route := ctx.Route()
 		if !after.After(
-			route.HandlerElement.Name(),
-			route.HandlerMethod,
+			route.StructType().Name(),
+			route.Method().Type().Name(),
 			ctx.Result) {
 			fmt.Println("we current cannot disallow invoke to next interceptors")
 		}

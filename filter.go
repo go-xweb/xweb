@@ -6,33 +6,34 @@ import (
 	"regexp"
 
 	"github.com/go-xweb/httpsession"
+	"github.com/lunny/tango"
 )
 
 type Filter interface {
 	Do(http.ResponseWriter, *http.Request) bool
 }
 
-func NewFilterInterceptor(filter Filter) *FilterInterceptor {
-	return &FilterInterceptor{filter: filter}
-}
-
-type FilterInterceptor struct {
+type FilterHandler struct {
 	filter Filter
 }
 
-func (itor *FilterInterceptor) Intercept(ctx *Context) {
+func NewFilterHandler(filter Filter) *FilterHandler {
+	return &FilterHandler{filter: filter}
+}
+
+func (itor *FilterHandler) Handle(ctx *tango.Context) {
 	if itor.filter != nil {
-		if !itor.filter.Do(ctx.Resp(), ctx.Req()) {
+		if !itor.filter.Do(ctx, ctx.Req()) {
 			return
 		}
 	}
 
-	ctx.Invoke()
+	ctx.Next()
 }
 
 // for compitable
 func (app *App) AddFilter(filter Filter) {
-	app.interceptors = append(app.interceptors, NewFilterInterceptor(filter))
+	app.Use(NewFilterHandler(filter))
 }
 
 type LoginFilter struct {

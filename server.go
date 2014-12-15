@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-xweb/httpsession"
 	"github.com/go-xweb/log"
+	"github.com/lunny/tango"
 )
 
 // ServerConfig is configuration for server objects.
@@ -86,79 +87,6 @@ func (s *Server) AddApp(a *App) {
 	}
 }
 
-func (server *Server) Classic() *App {
-	app := &App{
-		Injector:     NewInjector(),
-		Router:       NewRouter("/"),
-		interceptors: make([]Interceptor, 0),
-		Render: NewRender(
-			"templates",
-			true,
-			true,
-		),
-	}
-
-	app.Map(server.Logger)
-
-	app.Use(
-		NewLogInterceptor(server.Logger),
-		NewPanics(
-			server.Config.RecoverPanic,
-			app.AppConfig.Mode == Debug,
-		),
-		app.Render,
-		NewCompress(server.Config.StaticExtensionsToGzip),
-		&ReturnInterceptor{},
-		&Statics{
-			RootPath: "static",
-			IndexFiles: []string{
-				"index.html",
-				"index.htm",
-			},
-		},
-		&Events{},
-		&Requests{},
-		&Responses{},
-		app,
-		NewXsrf(time.Minute*20),
-		NewSessions(nil, time.Minute*20),
-	)
-
-	app.InjectAll()
-
-	return app
-}
-
-func (server *Server) Static() *App {
-	app := &App{
-		Injector:     NewInjector(),
-		Router:       NewRouter("/"),
-		interceptors: make([]Interceptor, 0),
-	}
-
-	app.Map(server.Logger)
-
-	app.Use(
-		NewLogInterceptor(server.Logger),
-		NewPanics(
-			server.Config.RecoverPanic,
-			app.AppConfig.Mode == Debug,
-		),
-		NewCompress(server.Config.StaticExtensionsToGzip),
-		&Statics{
-			RootPath: "static",
-			IndexFiles: []string{
-				"index.html",
-				"index.htm",
-			},
-		},
-	)
-
-	app.InjectAll()
-
-	return app
-}
-
 func (s *Server) AddAction(cs ...interface{}) {
 	s.RootApp.AddAction(cs...)
 }
@@ -175,8 +103,11 @@ func (s *Server) AddTmplVar(name string, varOrFun interface{}) {
 	s.RootApp.AddTmplVar(name, varOrFun)
 }
 
+type T map[string]interface{}
+
 func (s *Server) AddTmplVars(t *T) {
-	s.RootApp.AddTmplVars(t)
+	newt := tango.T(*t)
+	s.RootApp.AddTmplVars(&newt)
 }
 
 func (s *Server) AddFilter(filter Filter) {

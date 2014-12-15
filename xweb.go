@@ -23,10 +23,6 @@ func Run(addr string) {
 	mainServer.Run(addr)
 }
 
-func Classic() *App {
-	return mainServer.Classic()
-}
-
 func SimpleTLSConfig(certFile, keyFile string) (*tls.Config, error) {
 	config := &tls.Config{}
 	if config.NextProtos == nil {

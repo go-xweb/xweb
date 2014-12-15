@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/go-xweb/httpsession"
+	"github.com/lunny/tango"
+	"github.com/tango-contrib/bind"
+	"github.com/tango-contrib/xsrf"
 )
 
 type App struct {
-	*Injector
+	*tango.Tango
 	*Router
-	*Render
 	*Configs
+	*tango.Render
 
 	BasePath string
 	Name     string //[SWH|+]
@@ -24,8 +27,6 @@ type App struct {
 
 	// TODO: refactoring this
 	SessionManager *httpsession.Manager //Session manager
-
-	interceptors []Interceptor
 }
 
 const (
@@ -42,15 +43,13 @@ func NewApp(args ...string) *App {
 		name = args[1]
 	}
 	return &App{
-		Injector: NewInjector(),
-		Router:   NewRouter(basePath),
-		Configs:  NewConfigs(),
+		Tango:   tango.New(),
+		Router:  NewRouter(basePath),
+		Configs: NewConfigs(),
 
 		BasePath:  basePath,
 		Name:      name,
 		AppConfig: DefaultAppConfig,
-
-		interceptors: make([]Interceptor, 0),
 	}
 }
 
@@ -62,19 +61,6 @@ func (a *App) Run(addr string) {
 	a.Server.Run(addr)
 }
 
-func (a *App) Use(interceptors ...Interceptor) {
-	for _, inter := range interceptors {
-		a.interceptors = append(a.interceptors, inter)
-		a.Map(inter)
-	}
-}
-
-func (a *App) InjectAll() {
-	for _, inter := range a.interceptors {
-		a.Inject(inter)
-	}
-}
-
 func (a *App) initApp() {
 	// TODO: should test if logger has been mapped
 	logger := a.Server.Logger
@@ -82,35 +68,24 @@ func (a *App) initApp() {
 
 	a.Use(
 		a.Configs,
-		NewLogInterceptor(logger),
-		NewPanics(
-			a.Server.Config.RecoverPanic,
-			a.AppConfig.Mode == Debug,
-		),
+		tango.NewLogging(logger),
+		tango.NewRecovery(a.AppConfig.Mode == Debug),
 	)
 
 	if a.Server.Config.EnableGzip {
-		a.Use(NewCompress(a.Server.Config.StaticExtensionsToGzip))
+		a.Use(tango.NewCompress(a.Server.Config.StaticExtensionsToGzip))
 	}
 
 	a.Use(
-		&ReturnInterceptor{},
-		&Statics{
-			RootPath: a.AppConfig.StaticDir,
-			IndexFiles: []string{
-				"index.html",
-				"index.htm",
-			},
-		},
-		&Events{},
+		tango.HandlerFunc(tango.ReturnHandler),
+		NewEventsHandle(),
 		&Actions{},
 		&Requests{},
-		&Responses{},
 		a,
 	)
 
 	if a.AppConfig.FormMapToStruct {
-		a.Use(&Binds{})
+		a.Use(&bind.Binds{})
 	}
 
 	if a.AppConfig.StaticFileVersion {
@@ -125,7 +100,7 @@ func (a *App) initApp() {
 		}
 	}
 
-	render := NewRender(
+	render := tango.NewRender(
 		a.AppConfig.TemplateDir,
 		a.AppConfig.ReloadTemplates,
 		a.AppConfig.CacheTemplates,
@@ -134,17 +109,14 @@ func (a *App) initApp() {
 	a.Use(render)
 
 	if a.AppConfig.CheckXsrf {
-		a.Use(NewXsrf(a.AppConfig.SessionTimeout))
+		a.Use(xsrf.NewXsrf(a.AppConfig.SessionTimeout))
 	}
 
 	if a.AppConfig.SessionOn {
-		a.Use(NewSessions(
-			a.Server.SessionManager,
+		a.Use(tango.NewSessions(
 			a.AppConfig.SessionTimeout,
 		))
 	}
-
-	a.InjectAll()
 }
 
 func (a *App) SetStaticDir(dir string) {
@@ -170,30 +142,21 @@ func (a *App) ServeHttp(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Date", webTime(tm))
 
 	//Set the default content-type
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	//w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	ctx := NewContext(
-		a.Router,
-		a.interceptors,
-		req,
-		NewResponseWriter(w),
-	)
-
-	ctx.Invoke()
-
-	// flush the buffer
-	ctx.Resp().Flush()
+	a.Tango.ServeHTTP(w, req)
 }
 
-type AppInterface interface {
+type AppHandler interface {
 	SetApp(*App)
 }
 
-func (app *App) Intercept(ctx *Context) {
+func (app *App) Handle(ctx *tango.Context) {
 	if action := ctx.Action(); action != nil {
-		if apper, ok := action.(AppInterface); ok {
+		if apper, ok := action.(AppHandler); ok {
 			apper.SetApp(app)
 		}
 	}
-	ctx.Invoke()
+
+	ctx.Next()
 }
