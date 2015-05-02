@@ -11,6 +11,7 @@ import (
 
 	"github.com/howeyc/fsnotify"
 	"github.com/lunny/tango"
+	"github.com/tango-contrib/renders"
 )
 
 func (self *StaticVersions) Moniter(staticPath string) error {
@@ -192,8 +193,8 @@ type StaticVersions struct {
 	logger    tango.Logger
 }
 
-func (inter *StaticVersions) SetRender(render *tango.Render) {
-	render.FuncMaps["StaticUrl"] = func(url string) string {
+func (inter *StaticVersions) SetRender(render *renders.Renders) {
+	render.Options.Funcs["StaticUrl"] = func(url string) string {
 		return inter.staticUrl(url)
 	}
 }

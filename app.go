@@ -1,14 +1,17 @@
 package xweb
 
 import (
+	"html/template"
 	"net/http"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 
-	"github.com/go-xweb/httpsession"
 	"github.com/lunny/tango"
 	"github.com/tango-contrib/bind"
+	"github.com/tango-contrib/renders"
+	"github.com/tango-contrib/session"
 	"github.com/tango-contrib/xsrf"
 )
 
@@ -16,7 +19,10 @@ type App struct {
 	*tango.Tango
 	*Router
 	*Configs
-	*tango.Render
+
+	data     renders.T
+	funcs    template.FuncMap
+	sessions *session.Sessions
 
 	BasePath string
 	Name     string //[SWH|+]
@@ -24,9 +30,6 @@ type App struct {
 	Server    *Server
 	AppConfig AppConfig
 	Config    map[string]interface{}
-
-	// TODO: refactoring this
-	SessionManager *httpsession.Manager //Session manager
 }
 
 const (
@@ -42,8 +45,10 @@ func NewApp(args ...string) *App {
 	} else {
 		name = args[1]
 	}
+
+	t := tango.New()
 	return &App{
-		Tango:   tango.New(),
+		Tango:   t,
 		Router:  NewRouter(basePath),
 		Configs: NewConfigs(),
 
@@ -64,21 +69,19 @@ func (a *App) Run(addr string) {
 func (a *App) initApp() {
 	// TODO: should test if logger has been mapped
 	logger := a.Server.Logger
-	a.Map(logger)
 
 	a.Use(
 		a.Configs,
-		tango.NewLogging(logger),
-		tango.NewRecovery(a.AppConfig.Mode == Debug),
+		tango.Logging(),
+		tango.Recovery(a.AppConfig.Mode == Debug),
 	)
 
 	if a.Server.Config.EnableGzip {
-		a.Use(tango.NewCompress(a.Server.Config.StaticExtensionsToGzip))
+		a.Use(tango.Compresses(a.Server.Config.StaticExtensionsToGzip))
 	}
 
 	a.Use(
-		tango.HandlerFunc(tango.ReturnHandler),
-		NewEventsHandle(),
+		tango.Return(),
 		&Actions{},
 		&Requests{},
 		a,
@@ -95,28 +98,32 @@ func (a *App) initApp() {
 			a.basePath))
 	} else {
 		// even if don't use static file version, is still
-		a.FuncMaps["StaticUrl"] = func(url string) string {
+		a.funcs["StaticUrl"] = func(url string) string {
 			return path.Join(a.basePath, url)
 		}
 	}
 
-	render := tango.NewRender(
-		a.AppConfig.TemplateDir,
-		a.AppConfig.ReloadTemplates,
-		a.AppConfig.CacheTemplates,
-	)
-	a.Render = render
-	a.Use(render)
+	a.Use(renders.New(renders.Options{
+		Directory: a.AppConfig.TemplateDir,
+		Reload:    a.AppConfig.ReloadTemplates,
+		//a.AppConfig.CacheTemplates,
+		Funcs: a.funcs,
+		Vars:  a.data,
+	}))
 
 	if a.AppConfig.CheckXsrf {
-		a.Use(xsrf.NewXsrf(a.AppConfig.SessionTimeout))
+		a.Use(xsrf.New(a.AppConfig.SessionTimeout))
 	}
 
 	if a.AppConfig.SessionOn {
-		a.Use(tango.NewSessions(
-			a.AppConfig.SessionTimeout,
-		))
+		if a.sessions == nil {
+			a.sessions = session.New(session.Options{
+				MaxAge: a.AppConfig.SessionTimeout,
+			})
+		}
+		a.Use(a.sessions)
 	}
+	a.Use(Events())
 }
 
 func (a *App) SetStaticDir(dir string) {
@@ -125,6 +132,21 @@ func (a *App) SetStaticDir(dir string) {
 
 func (a *App) SetTemplateDir(path string) {
 	a.AppConfig.TemplateDir = path
+}
+
+func (a *App) AddTmplVar(name string, varOrFun interface{}) {
+	v := reflect.ValueOf(varOrFun)
+	if v.Type().Kind() == reflect.Func {
+		a.funcs[name] = varOrFun
+	} else {
+		a.data[name] = varOrFun
+	}
+}
+
+func (a *App) AddTmplVars(t *T) {
+	for name, v := range *t {
+		a.AddTmplVar(name, v)
+	}
 }
 
 func (a *App) ServeHttp(w http.ResponseWriter, req *http.Request) {
@@ -138,11 +160,7 @@ func (a *App) ServeHttp(w http.ResponseWriter, req *http.Request) {
 
 	//set some default headers
 	w.Header().Set("Server", "xweb")
-	tm := time.Now().UTC()
-	w.Header().Set("Date", webTime(tm))
-
-	//Set the default content-type
-	//w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Date", webTime(time.Now().UTC()))
 
 	a.Tango.ServeHTTP(w, req)
 }

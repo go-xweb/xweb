@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/lunny/tango"
 )
@@ -18,39 +19,39 @@ type InitInterface interface {
 	Init()
 }
 
-func NewEventsHandle() tango.Handler {
-	return tango.HandlerFunc(EventsHandle)
-}
+func Events() tango.HandlerFunc {
+	return func(ctx *tango.Context) {
+		action := ctx.Action()
+		if action != nil {
+			if init, ok := action.(InitInterface); ok {
+				init.Init()
+			}
 
-func EventsHandle(ctx *tango.Context) {
-	action := ctx.Action()
-	if action != nil {
-		if init, ok := action.(InitInterface); ok {
-			init.Init()
-		}
-
-		if before, ok := action.(BeforeInterface); ok {
-			route := ctx.Route()
-			if !before.Before(route.StructType().Name(),
-				route.Method().Type().Name()) {
-				return
+			if before, ok := action.(BeforeInterface); ok {
+				route := ctx.Route()
+				tp := reflect.ValueOf(route.Raw()).Elem()
+				if !before.Before(tp.Type().Name(),
+					route.Method().Type().Name()) {
+					return
+				}
 			}
 		}
-	}
 
-	ctx.Next()
+		ctx.Next()
 
-	if action == nil {
-		return
-	}
+		if action == nil {
+			return
+		}
 
-	if after, ok := action.(AfterInterface); ok {
-		route := ctx.Route()
-		if !after.After(
-			route.StructType().Name(),
-			route.Method().Type().Name(),
-			ctx.Result) {
-			fmt.Println("we current cannot disallow invoke to next interceptors")
+		if after, ok := action.(AfterInterface); ok {
+			route := ctx.Route()
+			tp := reflect.ValueOf(route.Raw()).Elem()
+			if !after.After(
+				tp.Type().Name(),
+				route.Method().Type().Name(),
+				ctx.Result) {
+				fmt.Println("we current cannot disallow invoke to next interceptors")
+			}
 		}
 	}
 }

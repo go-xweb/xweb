@@ -8,11 +8,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
-	"os"
 	"path"
 	"reflect"
 	"strconv"
@@ -20,8 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-xweb/httpsession"
 	"github.com/lunny/tango"
+	"github.com/tango-contrib/renders"
+	"github.com/tango-contrib/session"
 )
 
 // An Action object or it's substruct is created for every incoming HTTP request.
@@ -31,12 +29,10 @@ import (
 type Action struct {
 	App *App
 	*Configs
-	tango.Logger
 
-	*tango.Context
-	*tango.Renderer
-	*Request
-	session *httpsession.Session
+	tango.Ctx
+	renders.Renderer
+	session session.Session
 	c       reflect.Value // the sub struct's pointer's value
 }
 
@@ -59,7 +55,7 @@ func (c *Action) HttpCache(content []byte) bool {
 	//c.SetHeader("Connection", "keep-alive")
 	c.SetHeader("X-Cache", "HIT from COSCMS-Page-Cache")
 	//c.SetHeader("X-Cache", "HIT from COSCMS-Page-Cache 2013-12-02 17:16:01")
-	if inm := c.Request.Header("If-None-Match"); inm != "" && inm == Etag {
+	if inm := c.Req().Header.Get("If-None-Match"); inm != "" && inm == Etag {
 		h := c.ResponseWriter.Header()
 		delete(h, "Content-Type")
 		delete(h, "Content-Length")
@@ -97,22 +93,6 @@ func (c *Action) Write(content string, values ...interface{}) error {
 }
 
 // +inject
-func (c *Action) SetRenderer(renderer *tango.Renderer) {
-	c.Renderer = renderer
-}
-
-// +inject
-// func (c *Action) SetRequest(req *http.Request) {
-func (c *Action) SetRequest(req *Request) {
-	c.Request = req
-}
-
-// +inject
-func (c *Action) SetResponse(resp tango.ResponseWriter) {
-	c.ResponseWriter = resp
-}
-
-// +inject
 func (c *Action) SetAction(action interface{}) {
 	c.c = reflect.ValueOf(action)
 }
@@ -120,16 +100,6 @@ func (c *Action) SetAction(action interface{}) {
 // +inject
 func (c *Action) SetApp(app *App) {
 	c.App = app
-}
-
-// +inject
-func (c *Action) SetLogger(logger tango.Logger) {
-	c.Logger = logger
-}
-
-// +inject
-func (c *Action) SetSessions(session *httpsession.Session) {
-	c.session = session
 }
 
 // +inject
@@ -192,32 +162,9 @@ func (c *Action) SetSecureCookie(name string, val string, age int64) {
 }
 
 func (c *Action) GetSecureCookie(name string) (string, bool) {
-	for _, cookie := range c.Request.Cookies() {
-		if cookie.Name != name {
-			continue
-		}
-
-		parts := strings.SplitN(cookie.Value, "|", 3)
-
-		val := parts[0]
-		timestamp := parts[1]
-		sig := parts[2]
-
-		if getCookieSig(c.App.AppConfig.CookieSecret, []byte(val), timestamp) != sig {
-			return "", false
-		}
-
-		ts, _ := strconv.ParseInt(timestamp, 0, 64)
-
-		if time.Now().Unix()-31*86400 > ts {
-			return "", false
-		}
-
-		buf := bytes.NewBufferString(val)
-		encoder := base64.NewDecoder(base64.StdEncoding, buf)
-
-		res, _ := ioutil.ReadAll(encoder)
-		return string(res), true
+	cookie := c.Ctx.SecureCookies(c.App.AppConfig.CookieSecret).Get(name)
+	if cookie != nil {
+		return cookie.Value, true
 	}
 	return "", false
 }
@@ -255,7 +202,8 @@ func (c *Action) Go(m string, anotherc ...interface{}) error {
 		rPath = path.Join(root, m)
 	}
 	rPath = strings.Replace(rPath, "//", "/", -1)
-	return c.Context.Redirect(rPath)
+	c.Redirect(rPath)
+	return nil
 }
 
 func (c *Action) BasePath() string {
@@ -274,23 +222,8 @@ func (c *Action) GetConfig(name string) interface{} {
 	return c.App.Config[name]
 }
 
-func (c *Action) SaveToFile(fromfile, tofile string) error {
-	file, _, err := c.Request.FormFile(fromfile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	f, err := os.OpenFile(tofile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(f, file)
-	return err
-}
-
-func (c *Action) Session() *httpsession.Session {
-	return c.session
+func (c *Action) Session() *session.Session {
+	return &c.session
 }
 
 func (c *Action) GetSession(key string) interface{} {

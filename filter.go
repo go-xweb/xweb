@@ -13,27 +13,21 @@ type Filter interface {
 	Do(http.ResponseWriter, *http.Request) bool
 }
 
-type FilterHandler struct {
-	filter Filter
-}
-
-func NewFilterHandler(filter Filter) *FilterHandler {
-	return &FilterHandler{filter: filter}
-}
-
-func (itor *FilterHandler) Handle(ctx *tango.Context) {
-	if itor.filter != nil {
-		if !itor.filter.Do(ctx, ctx.Req()) {
-			return
+func FilterHandler(filter Filter) tango.HandlerFunc {
+	return func(ctx *tango.Context) {
+		if filter != nil {
+			if !filter.Do(ctx, ctx.Req()) {
+				return
+			}
 		}
-	}
 
-	ctx.Next()
+		ctx.Next()
+	}
 }
 
 // for compitable
 func (app *App) AddFilter(filter Filter) {
-	app.Use(NewFilterHandler(filter))
+	app.Use(FilterHandler(filter))
 }
 
 type LoginFilter struct {

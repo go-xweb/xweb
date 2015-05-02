@@ -13,9 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-xweb/httpsession"
 	"github.com/go-xweb/log"
-	"github.com/lunny/tango"
+	"github.com/tango-contrib/session"
 )
 
 // ServerConfig is configuration for server objects.
@@ -36,14 +35,14 @@ var ServerNumber uint = 0
 
 // Server represents a xweb server.
 type Server struct {
-	Config         *ServerConfig
-	Apps           map[string]*App
-	AppsNamePath   map[string]string
-	Name           string
-	SessionManager *httpsession.Manager
-	RootApp        *App
-	Logger         *log.Logger
-	Env            map[string]interface{}
+	Config       *ServerConfig
+	Apps         map[string]*App
+	AppsNamePath map[string]string
+	Name         string
+	sessions     *session.Sessions
+	RootApp      *App
+	Logger       *log.Logger
+	Env          map[string]interface{}
 	//save the listener so it can be closed
 	l net.Listener
 }
@@ -106,8 +105,7 @@ func (s *Server) AddTmplVar(name string, varOrFun interface{}) {
 type T map[string]interface{}
 
 func (s *Server) AddTmplVars(t *T) {
-	newt := tango.T(*t)
-	s.RootApp.AddTmplVars(&newt)
+	s.RootApp.AddTmplVars(t)
 }
 
 func (s *Server) AddFilter(filter Filter) {
@@ -277,15 +275,14 @@ func (s *Server) SetLogger(logger *log.Logger) {
 }
 
 func (s *Server) InitSession() {
-	if s.SessionManager == nil {
-		s.SessionManager = httpsession.Default()
+	if s.sessions == nil {
+		s.sessions = session.New(session.Options{
+			MaxAge: s.Config.SessionTimeout,
+		})
 	}
-	if s.Config.SessionTimeout > time.Second {
-		s.SessionManager.SetMaxAge(s.Config.SessionTimeout)
-	}
-	s.SessionManager.Run()
+
 	if s.RootApp != nil {
-		s.RootApp.SessionManager = s.SessionManager
+		s.RootApp.sessions = s.sessions
 	}
 }
 
